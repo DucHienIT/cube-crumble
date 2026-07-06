@@ -284,3 +284,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb00b007a11ce0de000000000000cb01, type: 3}
   m_Name:
   m_EditorClassIdentifier:
+  gameConfig: {fileID: 11400000, guid: 43d335f756a4b99106720ea6238acbee, type: 2}
+  palette: {fileID: 11400000, guid: d4695687e0d952ed68571c832094bf6b, type: 2}

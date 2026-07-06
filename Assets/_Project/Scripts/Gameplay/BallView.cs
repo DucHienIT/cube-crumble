@@ -13,7 +13,7 @@ namespace CubeBurst.Gameplay
 
         Vector3 _from, _ctrl, _to;
         float _t, _delay;
-        const float Duration = 0.55f;
+        static float Duration => Systems.GameConfig.Active.ballFlightDuration;
         Action<BallView> _onArrive;
         bool _arrived;
         TrailRenderer _trail;

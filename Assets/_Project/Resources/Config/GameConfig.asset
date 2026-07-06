@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c377b41122c353cf7bd59fa5bd56a918, type: 3}
+  m_Name: GameConfig
+  m_EditorClassIdentifier:
+  targetFrameRate: 60
+  cameraMinOrthoSize: 6
+  cameraHalfWidth: 3.9
+  totalLevels: 30
+  threeStarTimeFraction: 0.5
+  twoStarTimeFraction: 0.25
+  dragThresholdPx: 16
+  dragDegreesPerScreenWidth: 270
+  ballFlightDuration: 0.55
+  ballSpawnStagger: 0.035
+  ballSpawnJitter: {x: 0.2, y: 0.15}
+  transferBaseDelay: 0.12
+  transferStagger: 0.08
+  resultPopupDelay: 0.9
+  musicVolume: 0.3

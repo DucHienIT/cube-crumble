@@ -11,7 +11,7 @@ namespace CubeBurst.Gameplay
     /// Conductor: loads levels, routes input, connects session logic to views.
     public class GameManager : MonoBehaviour
     {
-        public const int TotalLevels = 30;
+        public static int TotalLevels => GameConfig.Active.totalLevels;
 
         public static GameManager Instance { get; private set; }
 
@@ -73,7 +73,9 @@ namespace CubeBurst.Gameplay
         void Update()
         {
             var cam = Camera.main;
-            if (cam != null) cam.orthographicSize = Mathf.Max(6f, 3.9f / cam.aspect);
+            var cfg = GameConfig.Active;
+            if (cam != null)
+                cam.orthographicSize = Mathf.Max(cfg.cameraMinOrthoSize, cfg.cameraHalfWidth / cam.aspect);
 
             if (!IsPlaying) return;
             _session.Tick(Time.deltaTime);
@@ -84,7 +86,6 @@ namespace CubeBurst.Gameplay
 
         Vector2 _pressPos, _lastPos;
         bool _pressing, _rotating;
-        const float DragThresholdPx = 16f;
 
         /// A press that stays put is a tap (crumble on release); a horizontal
         /// drag spins the cube shape, snapping to 90° on release.
@@ -106,10 +107,11 @@ namespace CubeBurst.Gameplay
 
             if (pointer.press.isPressed)
             {
-                if (!_rotating && (pos - _pressPos).magnitude > DragThresholdPx)
+                var cfg = GameConfig.Active;
+                if (!_rotating && (pos - _pressPos).magnitude > cfg.dragThresholdPx)
                     _rotating = true;
                 if (_rotating)
-                    _shapeView.DragRotate((pos.x - _lastPos.x) * (270f / Screen.width));
+                    _shapeView.DragRotate((pos.x - _lastPos.x) * (cfg.dragDegreesPerScreenWidth / Screen.width));
                 _lastPos = pos;
                 return;
             }
@@ -149,10 +151,13 @@ namespace CubeBurst.Gameplay
             Vector3 origin = cube.transform.position;
             origin.z = CubeShapeView.FrontZ; // keep flying balls in front of the cube meshes
             _shapeView.RemoveCube(cube.CubeId);
+            var cfg = GameConfig.Active;
             for (int i = 0; i < routes.Count; i++)
             {
-                var from = origin + new Vector3(Random.Range(-0.2f, 0.2f), Random.Range(-0.15f, 0.15f), 0f);
-                SpawnBall(routes[i], from, i * 0.035f);
+                var from = origin + new Vector3(
+                    Random.Range(-cfg.ballSpawnJitter.x, cfg.ballSpawnJitter.x),
+                    Random.Range(-cfg.ballSpawnJitter.y, cfg.ballSpawnJitter.y), 0f);
+                SpawnBall(routes[i], from, i * cfg.ballSpawnStagger);
             }
         }
 
@@ -196,7 +201,8 @@ namespace CubeBurst.Gameplay
             var parked = _sharedView.TakeBall(route.Color);
             Vector3 from = parked != null ? parked.transform.position : _sharedView.GetDropPoint();
             if (parked != null) Destroy(parked);
-            SpawnBall(route, from, 0.12f + _transferStagger++ * 0.08f);
+            var cfg = GameConfig.Active;
+            SpawnBall(route, from, cfg.transferBaseDelay + _transferStagger++ * cfg.transferStagger);
         }
 
         void OnEnded(GameStatus status)
@@ -207,20 +213,21 @@ namespace CubeBurst.Gameplay
                 int stars = ComputeStars();
                 SaveSystem.CompleteLevel(_levelIndex, stars, TotalLevels);
                 if (AudioManager.Instance != null) AudioManager.Instance.PlayWin();
-                _resultDelay = DOVirtual.DelayedCall(0.9f, () => _ui.ShowResult(true, stars, status));
+                _resultDelay = DOVirtual.DelayedCall(GameConfig.Active.resultPopupDelay, () => _ui.ShowResult(true, stars, status));
             }
             else
             {
                 if (AudioManager.Instance != null) AudioManager.Instance.PlayLose();
-                _resultDelay = DOVirtual.DelayedCall(0.9f, () => _ui.ShowResult(false, 0, status));
+                _resultDelay = DOVirtual.DelayedCall(GameConfig.Active.resultPopupDelay, () => _ui.ShowResult(false, 0, status));
             }
         }
 
         int ComputeStars()
         {
+            var cfg = GameConfig.Active;
             float frac = _session.TimeRemaining / Mathf.Max(1f, _session.Level.timeLimitSeconds);
-            if (frac >= 0.5f) return 3;
-            if (frac >= 0.25f) return 2;
+            if (frac >= cfg.threeStarTimeFraction) return 3;
+            if (frac >= cfg.twoStarTimeFraction) return 2;
             return 1;
         }
 

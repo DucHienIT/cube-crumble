@@ -40,7 +40,7 @@ namespace CubeBurst.Systems
             BuildClips();
             _music.clip = BuildMusicLoop();
             _music.loop = true;
-            _music.volume = 0.3f;
+            _music.volume = GameConfig.Active.musicVolume;
             _music.Play();
             SoundOn = SaveSystem.SoundOn;
         }

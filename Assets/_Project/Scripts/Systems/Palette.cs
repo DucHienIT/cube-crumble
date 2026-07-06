@@ -3,50 +3,38 @@ using UnityEngine;
 
 namespace CubeBurst.Systems
 {
+    /// Static facade over PaletteConfig so call sites stay short
+    /// (`Palette.Background`). Edit colors in Resources/Config/PaletteConfig.asset,
+    /// not here — this class holds no color values of its own.
     public static class Palette
     {
-        public static readonly Color Background = Hex("#D8E2EF");
-        public static readonly Color Outline = Hex("#1E3A8A");
-        public static readonly Color UIDark = Hex("#1B2A55");
-        public static readonly Color UIAccent = Hex("#3D6BE5");
-        public static readonly Color UILight = Hex("#F4F8FC");
-        public static readonly Color Gold = Hex("#F9C233");
+        static PaletteConfig Cfg => PaletteConfig.Active;
+
+        public static Color Background => Cfg.background;
+        public static Color Outline => Cfg.outline;
+        public static Color UIDark => Cfg.uiDark;
+        public static Color UIAccent => Cfg.uiAccent;
+        public static Color UILight => Cfg.uiLight;
+        public static Color Gold => Cfg.gold;
 
         // candy-UI colors (menus, buttons, popups)
-        public static readonly Color SkyBg = Hex("#A9CFFF");
-        public static readonly Color BtnGreen = Hex("#57C43D");
-        public static readonly Color BtnBlue = Hex("#3D8BFF");
-        public static readonly Color BtnOrange = Hex("#FFA132");
-        public static readonly Color BtnRed = Hex("#F4574A");
-        public static readonly Color BtnSlate = Hex("#8FA2C7");
-        public static readonly Color CardWhite = Hex("#FDFEFF");
-        public static readonly Color ShadowInk = new Color(0.07f, 0.11f, 0.28f, 0.35f);
+        public static Color SkyBg => Cfg.skyBg;
+        public static Color BtnGreen => Cfg.btnGreen;
+        public static Color BtnBlue => Cfg.btnBlue;
+        public static Color BtnOrange => Cfg.btnOrange;
+        public static Color BtnRed => Cfg.btnRed;
+        public static Color BtnSlate => Cfg.btnSlate;
+        public static Color CardWhite => Cfg.cardWhite;
+        public static Color ShadowInk => Cfg.shadowInk;
 
         // reference-art styling colors
-        public static readonly Color ShapeOutline = Hex("#3F63E0");   // blue silhouette line around the polycube
-        public static readonly Color PanelBg = Hex("#C6D2F0");        // bottom panel
-        public static readonly Color PillarBg = Hex("#DFE7FB");       // side pillars
-        public static readonly Color TrayRim = Hex("#F2DFE3");        // basin rim (soft pink-white)
-        public static readonly Color TrayRimDanger = Hex("#F07A70");
-        public static readonly Color CounterGray = Hex("#B4BFD6");
+        public static Color ShapeOutline => Cfg.shapeOutline;
+        public static Color PanelBg => Cfg.panelBg;
+        public static Color PillarBg => Cfg.pillarBg;
+        public static Color TrayRim => Cfg.trayRim;
+        public static Color TrayRimDanger => Cfg.trayRimDanger;
+        public static Color CounterGray => Cfg.counterGray;
 
-        /// Display hues follow the reference art; enum names are historical
-        /// (level JSON stores indices, so the enum can't change).
-        static readonly Color[] ColorMap =
-        {
-            Hex("#F6392B"), // Red    -> red
-            Hex("#D91A6B"), // Purple -> magenta/crimson
-            Hex("#45464F"), // Orange -> dark gray (the "black" cubes)
-            Hex("#FFD62B"), // Yellow -> yellow
-            Hex("#A8DC26"), // Green  -> lime
-            Hex("#2FDDE5"), // Blue   -> cyan
-        };
-
-        public static Color Of(GameColor c) => ColorMap[(int)c];
-
-        static Color Hex(string hex)
-        {
-            return ColorUtility.TryParseHtmlString(hex, out var c) ? c : Color.magenta;
-        }
+        public static Color Of(GameColor c) => Cfg.Of(c);
     }
 }
