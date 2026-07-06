@@ -14,12 +14,6 @@ namespace CubeBurst.Systems
         AudioClip _click, _crumble, _land, _complete, _win, _lose;
         bool _soundOn = true;
 
-        public static AudioManager Create()
-        {
-            var go = new GameObject("AudioManager");
-            return go.AddComponent<AudioManager>();
-        }
-
         public bool SoundOn
         {
             get => _soundOn;

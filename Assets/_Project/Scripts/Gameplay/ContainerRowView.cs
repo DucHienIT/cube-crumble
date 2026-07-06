@@ -12,7 +12,6 @@ namespace CubeBurst.Gameplay
     public class ContainerRowView : MonoBehaviour
     {
         static readonly float[] SlotX = { -2.7f, -0.9f, 0.9f, 2.7f };
-        const float ActiveY = -2.65f;
         const float RowStep = 0.8f;
         const int QueueRows = 6;
         internal static readonly Vector3 PillScale = new Vector3(1.08f, 0.89f, 1f);
@@ -31,20 +30,17 @@ namespace CubeBurst.Gameplay
         readonly List<ContainerModel> _staleScratch = new List<ContainerModel>();
         readonly bool[] _justCompleted = new bool[ContainerManagerModel.SlotCount];
 
-        public static ContainerRowView Create(Transform parent, GameSession session)
+        [SerializeField] DebrisPiece debrisPrefab;
+
+        // row position is authored on the ContainerRow prefab root
+        public void Init(GameSession session)
         {
-            var go = new GameObject("ContainerRow");
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(0f, ActiveY, 0f);
+            _session = session;
+            for (int i = 0; i < _slots.Length; i++)
+                _slots[i] = ContainerSlotView.Create(transform, new Vector3(SlotX[i], 0f, 0f), debrisPrefab);
 
-            var view = go.AddComponent<ContainerRowView>();
-            view._session = session;
-            for (int i = 0; i < view._slots.Length; i++)
-                view._slots[i] = ContainerSlotView.Create(go.transform, new Vector3(SlotX[i], 0f, 0f));
-
-            session.Containers.ContainerEntered += view.OnEntered;
-            session.Containers.ContainerCompleted += view.OnCompleted;
-            return view;
+            session.Containers.ContainerEntered += OnEntered;
+            session.Containers.ContainerCompleted += OnCompleted;
         }
 
         void OnDestroy()
@@ -183,6 +179,7 @@ namespace CubeBurst.Gameplay
         ContainerModel _model;
         GameObject _visual;
         SpriteRenderer _pill;
+        DebrisPiece _debrisPrefab;
         readonly List<GameObject> _sockets = new List<GameObject>();
         readonly List<MeshRenderer> _fillBalls = new List<MeshRenderer>();
 
@@ -196,13 +193,14 @@ namespace CubeBurst.Gameplay
             return transform.position + new Vector3(x, 0.05f, -0.2f);
         }
 
-        public static ContainerSlotView Create(Transform parent, Vector3 localPos)
+        public static ContainerSlotView Create(Transform parent, Vector3 localPos, DebrisPiece debrisPrefab)
         {
             var go = new GameObject("ContainerSlot");
             go.transform.SetParent(parent, false);
             go.transform.localPosition = localPos;
 
             var view = go.AddComponent<ContainerSlotView>();
+            view._debrisPrefab = debrisPrefab;
             view._visual = new GameObject("Visual");
             view._visual.transform.SetParent(go.transform, false);
 
@@ -330,7 +328,7 @@ namespace CubeBurst.Gameplay
             seq.OnComplete(() =>
             {
                 if (ghost != null) Destroy(ghost);
-                if (this != null) DebrisBurst.Spawn(transform, popPos, color);
+                if (this != null) DebrisBurst.Spawn(_debrisPrefab, transform, popPos, color);
             });
             Destroy(ghost, 2f); // safety net if the tween is killed (OnComplete handles the normal case)
         }

@@ -5,7 +5,9 @@ using UnityEngine;
 
 namespace CubeBurst.UI
 {
-    /// Owns the canvas and toggles the plain-class screens.
+    /// Lives on the scene's UICanvas; toggles the plain-class screens it
+    /// builds under itself (screens stay procedural — their sprites are
+    /// runtime-generated and can't be serialized into the scene).
     public class UIController : MonoBehaviour
     {
         GameManager _gm;
@@ -19,13 +21,7 @@ namespace CubeBurst.UI
 
         public HUDScreen Hud => _hud;
 
-        public static UIController Create()
-        {
-            var canvas = UIFactory.CreateCanvas("UICanvas");
-            var ui = canvas.gameObject.AddComponent<UIController>();
-            ui._canvas = canvas.transform;
-            return ui;
-        }
+        void Awake() => _canvas = transform;
 
         public void Init(GameManager gm)
         {

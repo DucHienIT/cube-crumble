@@ -21,6 +21,9 @@ namespace CubeBurst.Gameplay
         /// depth test against the cube meshes.
         public const float FrontZ = -2.6f;
 
+        [SerializeField] CubeView cubePrefab;
+        [SerializeField] DebrisPiece debrisPrefab;
+
         GameSession _session;
         readonly Dictionary<int, CubeView> _views = new Dictionary<int, CubeView>();
         readonly Dictionary<int, GameObject> _hullWhite = new Dictionary<int, GameObject>();
@@ -29,14 +32,10 @@ namespace CubeBurst.Gameplay
         float _yaw;           // free-spinning yaw offset while dragging (deg)
         Tween _snapTween;
 
-        public static CubeShapeView Create(Transform parent, GameSession session)
+        public void Init(GameSession session)
         {
-            var go = new GameObject("CubeShape");
-            go.transform.SetParent(parent, false);
-            var view = go.AddComponent<CubeShapeView>();
-            view._session = session;
-            view.Build();
-            return view;
+            _session = session;
+            Build();
         }
 
         /// Grid z is mirrored so at orientation 0 the three camera-facing
@@ -93,7 +92,9 @@ namespace CubeBurst.Gameplay
             foreach (var cube in _session.Shape.Cubes)
             {
                 var local = GridToLocal(cube) - gridCenter;
-                _views[cube.Id] = CubeView.Create(transform, cube, local);
+                var view = Instantiate(cubePrefab, transform);
+                view.Init(cube, local);
+                _views[cube.Id] = view;
                 _hullWhite[cube.Id] = CreateHull(_outlineWhite, local, 1.2f, Color.white, 28);
                 _hullBlue[cube.Id] = CreateHull(_outlineBlue, local, 1.29f, Palette.ShapeOutline, 24);
             }
@@ -162,7 +163,7 @@ namespace CubeBurst.Gameplay
             if (!_views.TryGetValue(cubeId, out var view)) return;
             var debrisPos = view.transform.position;
             debrisPos.z = FrontZ;
-            DebrisBurst.Spawn(transform.parent, debrisPos, view.GameColor);
+            DebrisBurst.Spawn(debrisPrefab, transform.parent, debrisPos, view.GameColor);
             _views.Remove(cubeId);
             Destroy(view.gameObject);
             if (_hullWhite.TryGetValue(cubeId, out var hw)) { Destroy(hw); _hullWhite.Remove(cubeId); }

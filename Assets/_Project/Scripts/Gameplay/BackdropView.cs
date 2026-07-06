@@ -5,13 +5,13 @@ namespace CubeBurst.Gameplay
 {
     /// Decorative gameplay backdrop matching the reference art: faint vertical
     /// stripes behind the cube shape, a big rounded bottom panel, and two
-    /// side pillars framing the tray + containers.
-    public static class BackdropView
+    /// side pillars framing the tray + containers. Lives on Backdrop.prefab;
+    /// the sprites are procedural, so it builds its children on Start.
+    public class BackdropView : MonoBehaviour
     {
-        public static void Create(Transform parent)
+        void Start()
         {
-            var root = new GameObject("Backdrop").transform;
-            root.SetParent(parent, false);
+            var root = transform;
 
             // striped upper background
             var stripes = NewSprite(root, "Stripes", SpriteFactory.Stripes(), 0);

@@ -19,30 +19,25 @@ namespace CubeBurst.Gameplay
         Vector3 _homePos;
         MeshRenderer _renderer;
 
-        public static CubeView Create(Transform parent, CubeUnit cube, Vector3 localPos)
+        /// The prefab carries MeshFilter/MeshRenderer/BoxCollider (collider
+        /// size is a prefab tunable); the procedural mesh and per-color
+        /// materials are assigned here.
+        public void Init(CubeUnit cube, Vector3 localPos)
         {
-            var go = new GameObject($"Cube_{cube.Id}", typeof(MeshFilter), typeof(MeshRenderer), typeof(BoxCollider));
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = localPos;
+            name = $"Cube_{cube.Id}";
+            transform.localPosition = localPos;
 
-            go.GetComponent<MeshFilter>().sharedMesh = CubeMeshFactory.UnitCube();
-            var mr = go.GetComponent<MeshRenderer>();
-            mr.sharedMaterials = CubeMeshFactory.MaterialsFor(cube.Color);
-            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            mr.receiveShadows = false;
+            GetComponent<MeshFilter>().sharedMesh = CubeMeshFactory.UnitCube();
+            _renderer = GetComponent<MeshRenderer>();
+            _renderer.sharedMaterials = CubeMeshFactory.MaterialsFor(cube.Color);
 
-            go.GetComponent<BoxCollider>().size = Vector3.one * 0.98f;
-
-            var view = go.AddComponent<CubeView>();
-            view.CubeId = cube.Id;
-            view.GameColor = cube.Color;
-            view.BaseColor = Palette.Of(cube.Color);
-            view.GX = cube.X;
-            view.GY = cube.Y;
-            view.GZ = cube.Z;
-            view._homePos = localPos;
-            view._renderer = mr;
-            return view;
+            CubeId = cube.Id;
+            GameColor = cube.Color;
+            BaseColor = Palette.Of(cube.Color);
+            GX = cube.X;
+            GY = cube.Y;
+            GZ = cube.Z;
+            _homePos = localPos;
         }
 
         /// Painter-order fallback: cubes closer to the camera draw later, in

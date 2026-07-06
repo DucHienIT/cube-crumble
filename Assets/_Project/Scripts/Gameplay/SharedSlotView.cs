@@ -16,7 +16,7 @@ namespace CubeBurst.Gameplay
     /// up with real physics (z-locked so they behave like a 2D pile).
     public class SharedSlotView : MonoBehaviour
     {
-        static readonly Vector3 TrayPos = new Vector3(0f, -1.3f, 0f);
+        // tray position is authored on the SharedSlot prefab root
 
         // basin interior derived from the BasinRim sprite bake (416x224 @128ppu)
         const float FloorY = -0.65f;        // inner floor surface
@@ -31,15 +31,10 @@ namespace CubeBurst.Gameplay
         SpriteRenderer _rim;
         readonly List<GameObject> _balls = new List<GameObject>();
 
-        public static SharedSlotView Create(Transform parent, GameSession session)
+        public void Init(GameSession session)
         {
-            var go = new GameObject("SharedSlot");
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = TrayPos;
-            var view = go.AddComponent<SharedSlotView>();
-            view._session = session;
-            view.Build();
-            return view;
+            _session = session;
+            Build();
         }
 
         void Build()

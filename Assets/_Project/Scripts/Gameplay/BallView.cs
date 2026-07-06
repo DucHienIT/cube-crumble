@@ -18,51 +18,35 @@ namespace CubeBurst.Gameplay
         bool _arrived;
         TrailRenderer _trail;
 
-        public static BallView Spawn(Transform parent, BallRoute route, Vector3 from, Vector3 to,
+        /// The prefab carries the components and their tunables (scale,
+        /// shadow flags, trail time/width — edit them on Ball.prefab); only
+        /// the procedural assets (sphere mesh, matcap material, trail tint)
+        /// are assigned here.
+        public void Launch(BallRoute route, Vector3 from, Vector3 to,
             float delay, Action<BallView> onArrive)
         {
-            var go = new GameObject("Ball", typeof(MeshFilter), typeof(MeshRenderer));
-            go.transform.SetParent(parent, false);
-            go.transform.position = from;
-            go.transform.localScale = Vector3.one * 0.34f;
+            transform.position = from;
 
-            go.GetComponent<MeshFilter>().sharedMesh = CubeMeshFactory.Sphere();
-            var mr = go.GetComponent<MeshRenderer>();
-            mr.sharedMaterial = CubeMeshFactory.BallMaterialFor(route.Color);
-            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            mr.receiveShadows = false;
-            mr.sortingOrder = 500;
+            GetComponent<MeshFilter>().sharedMesh = CubeMeshFactory.Sphere();
+            GetComponent<MeshRenderer>().sharedMaterial = CubeMeshFactory.BallMaterialFor(route.Color);
 
-            // comet trail behind the flying ball (width is in the ball's local
-            // scale, so ~0.5 reads as a tail a bit thinner than the ball)
-            var trail = go.AddComponent<TrailRenderer>();
-            trail.material = CubeMeshFactory.TrailMaterial();
-            trail.time = 0.16f;
-            trail.startWidth = 0.55f;
-            trail.endWidth = 0f;
-            trail.numCapVertices = 3;
-            trail.minVertexDistance = 0.03f;
-            trail.alignment = LineAlignment.View;
-            trail.sortingOrder = 499;
-            trail.autodestruct = false;
-            trail.emitting = false; // starts once the ball leaves the spawn point
+            _trail = GetComponent<TrailRenderer>();
+            _trail.material = CubeMeshFactory.TrailMaterial();
+            _trail.emitting = false; // starts once the ball leaves the spawn point
             var tint = Palette.Of(route.Color);
             var grad = new Gradient();
             grad.SetKeys(
                 new[] { new GradientColorKey(tint, 0f), new GradientColorKey(tint, 1f) },
                 new[] { new GradientAlphaKey(0.6f, 0f), new GradientAlphaKey(0f, 1f) });
-            trail.colorGradient = grad;
+            _trail.colorGradient = grad;
 
-            var ball = go.AddComponent<BallView>();
-            ball._trail = trail;
-            ball.Route = route;
-            ball._from = from;
-            ball._to = to;
+            Route = route;
+            _from = from;
+            _to = to;
             var mid = (from + to) * 0.5f;
-            ball._ctrl = mid + new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 1.3f, 0f);
-            ball._delay = delay;
-            ball._onArrive = onArrive;
-            return ball;
+            _ctrl = mid + new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 1.3f, 0f);
+            _delay = delay;
+            _onArrive = onArrive;
         }
 
         /// Stops and removes the trail so a parked tray ball doesn't drag one.
