@@ -1,0 +1,273 @@
+using CubeBurst.Core;
+using CubeBurst.Systems;
+using CubeBurst.UI;
+using DG.Tweening;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+
+namespace CubeBurst.Gameplay
+{
+    /// Conductor: loads levels, routes input, connects session logic to views.
+    public class GameManager : MonoBehaviour
+    {
+        public const int TotalLevels = 30;
+
+        public static GameManager Instance { get; private set; }
+
+        UIController _ui;
+        GameSession _session;
+        int _levelIndex;
+        bool _paused;
+        int _landCombo;
+        int _transferStagger;
+
+        Transform _worldRoot;
+        CubeShapeView _shapeView;
+        ContainerRowView _containerView;
+        SharedSlotView _sharedView;
+        Tween _resultDelay;
+
+        public GameSession Session => _session;
+        public int LevelIndex => _levelIndex;
+        public bool IsPlaying => _session != null && _session.Status == GameStatus.Playing && !_paused;
+
+        public static GameManager Create(UIController ui)
+        {
+            var go = new GameObject("GameManager");
+            var gm = go.AddComponent<GameManager>();
+            gm._ui = ui;
+            return gm;
+        }
+
+        void Awake() => Instance = this;
+
+        public void StartLevel(int index)
+        {
+            CleanupLevel();
+            _levelIndex = index;
+
+            var text = Resources.Load<TextAsset>($"Levels/level_{index:000}");
+            if (text == null)
+            {
+                Debug.LogError($"[CubeBurst] Missing level data: Levels/level_{index:000}");
+                _ui.ShowMainMenu();
+                return;
+            }
+            var data = JsonUtility.FromJson<LevelData>(text.text);
+
+            _session = new GameSession(data);
+            _worldRoot = new GameObject("LevelRoot").transform;
+            BackdropView.Create(_worldRoot);
+            _shapeView = CubeShapeView.Create(_worldRoot, _session);
+            _sharedView = SharedSlotView.Create(_worldRoot, _session);
+            _containerView = ContainerRowView.Create(_worldRoot, _session);
+
+            _session.Ended += OnEnded;
+            _session.TransferSpawned += OnTransfer;
+            _session.Begin();
+
+            _ui.ShowHUD();
+        }
+
+        void Update()
+        {
+            var cam = Camera.main;
+            if (cam != null) cam.orthographicSize = Mathf.Max(6f, 3.9f / cam.aspect);
+
+            if (!IsPlaying) return;
+            _session.Tick(Time.deltaTime);
+            if (_ui.Hud != null) _ui.Hud.Refresh();
+            _transferStagger = 0;
+            HandleInput();
+        }
+
+        Vector2 _pressPos, _lastPos;
+        bool _pressing, _rotating;
+        const float DragThresholdPx = 16f;
+
+        /// A press that stays put is a tap (crumble on release); a horizontal
+        /// drag spins the cube shape, snapping to 90° on release.
+        void HandleInput()
+        {
+            var pointer = Pointer.current;
+            if (pointer == null) return;
+            var pos = pointer.position.ReadValue();
+
+            if (pointer.press.wasPressedThisFrame)
+            {
+                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+                _pressing = true;
+                _rotating = false;
+                _pressPos = _lastPos = pos;
+                return;
+            }
+            if (!_pressing) return;
+
+            if (pointer.press.isPressed)
+            {
+                if (!_rotating && (pos - _pressPos).magnitude > DragThresholdPx)
+                    _rotating = true;
+                if (_rotating)
+                    _shapeView.DragRotate((pos.x - _lastPos.x) * (270f / Screen.width));
+                _lastPos = pos;
+                return;
+            }
+
+            // released this frame
+            _pressing = false;
+            if (_rotating)
+            {
+                _rotating = false;
+                _shapeView.EndDrag();
+                return;
+            }
+            TryTapAt(pos);
+        }
+
+        void TryTapAt(Vector2 screenPos)
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            var ray = cam.ScreenPointToRay(screenPos);
+            if (Physics.Raycast(ray, out var hit, 200f))
+            {
+                var cube = hit.collider.GetComponent<CubeView>();
+                if (cube != null) TryCrumble(cube);
+            }
+        }
+
+        void TryCrumble(CubeView cube)
+        {
+            var routes = _session.TapCube(cube.CubeId);
+            if (routes == null)
+            {
+                cube.Shake();
+                return;
+            }
+            if (AudioManager.Instance != null) AudioManager.Instance.PlayCrumble();
+            Vector3 origin = cube.transform.position;
+            origin.z = CubeShapeView.FrontZ; // keep flying balls in front of the cube meshes
+            _shapeView.RemoveCube(cube.CubeId);
+            for (int i = 0; i < routes.Count; i++)
+            {
+                var from = origin + new Vector3(Random.Range(-0.2f, 0.2f), Random.Range(-0.15f, 0.15f), 0f);
+                SpawnBall(routes[i], from, i * 0.035f);
+            }
+        }
+
+        void SpawnBall(BallRoute route, Vector3 from, float delay)
+        {
+            Vector3 target = route.Target == BallTarget.Container
+                ? _containerView.GetBallPoint(route.Slot, route.SocketIndex)
+                : _sharedView.GetDropPoint();
+            BallView.Spawn(_worldRoot, route, from, target, delay, OnBallArrived);
+        }
+
+        void OnBallArrived(BallView ball)
+        {
+            if (_session == null || _session.Status != GameStatus.Playing)
+            {
+                Destroy(ball.gameObject);
+                return;
+            }
+
+            var route = ball.Route;
+            if (route.Target == BallTarget.Container)
+            {
+                _landCombo++;
+                if (AudioManager.Instance != null) AudioManager.Instance.PlayLand(_landCombo);
+                Destroy(ball.gameObject);
+                _session.BallArrived(route);
+                _containerView.RefreshSlot(route.Slot);
+            }
+            else
+            {
+                if (AudioManager.Instance != null) AudioManager.Instance.PlayLand(0);
+                _sharedView.AcceptBall(ball);
+                _session.BallArrived(route);
+            }
+            if (_ui.Hud != null) _ui.Hud.Refresh();
+        }
+
+        /// Session decided a tray ball should fly into a fresh container.
+        void OnTransfer(BallRoute route)
+        {
+            var parked = _sharedView.TakeBall(route.Color);
+            Vector3 from = parked != null ? parked.transform.position : _sharedView.GetDropPoint();
+            if (parked != null) Destroy(parked);
+            SpawnBall(route, from, 0.12f + _transferStagger++ * 0.08f);
+        }
+
+        void OnEnded(GameStatus status)
+        {
+            if (_ui.Hud != null) _ui.Hud.Refresh();
+            if (status == GameStatus.Won)
+            {
+                int stars = ComputeStars();
+                SaveSystem.CompleteLevel(_levelIndex, stars, TotalLevels);
+                if (AudioManager.Instance != null) AudioManager.Instance.PlayWin();
+                _resultDelay = DOVirtual.DelayedCall(0.9f, () => _ui.ShowResult(true, stars, status));
+            }
+            else
+            {
+                if (AudioManager.Instance != null) AudioManager.Instance.PlayLose();
+                _resultDelay = DOVirtual.DelayedCall(0.9f, () => _ui.ShowResult(false, 0, status));
+            }
+        }
+
+        int ComputeStars()
+        {
+            float frac = _session.TimeRemaining / Mathf.Max(1f, _session.Level.timeLimitSeconds);
+            if (frac >= 0.5f) return 3;
+            if (frac >= 0.25f) return 2;
+            return 1;
+        }
+
+        public void SetPaused(bool paused)
+        {
+            _paused = paused;
+            Time.timeScale = paused ? 0f : 1f;
+            if (paused && _rotating && _shapeView != null) _shapeView.EndDrag();
+            _pressing = _rotating = false;
+        }
+
+        public void RestartLevel() => StartLevel(_levelIndex);
+
+        public void NextLevel()
+        {
+            if (_levelIndex < TotalLevels) StartLevel(_levelIndex + 1);
+            else QuitToMenu();
+        }
+
+        public void QuitToMenu()
+        {
+            CleanupLevel();
+            _ui.ShowMainMenu();
+        }
+
+        void CleanupLevel()
+        {
+            if (_resultDelay != null)
+            {
+                _resultDelay.Kill();
+                _resultDelay = null;
+            }
+            if (_session != null)
+            {
+                _session.Ended -= OnEnded;
+                _session.TransferSpawned -= OnTransfer;
+                _session = null;
+            }
+            DOTween.KillAll();
+            if (_worldRoot != null) Destroy(_worldRoot.gameObject);
+            _worldRoot = null;
+            _shapeView = null;
+            _containerView = null;
+            _sharedView = null;
+            _landCombo = 0;
+            _paused = false;
+            Time.timeScale = 1f;
+        }
+    }
+}
