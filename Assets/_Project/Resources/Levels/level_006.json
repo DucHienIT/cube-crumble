@@ -1,0 +1,237 @@
+{
+  "levelId": 6,
+  "timeLimitSeconds": 88,
+  "sharedSlotCapacity": 45,
+  "cubes": [
+    {
+      "x": 1,
+      "y": 0,
+      "z": 2,
+      "color": 1,
+      "ballCount": 9
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 3,
+      "color": 2,
+      "ballCount": 9
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 4,
+      "color": 2,
+      "ballCount": 9
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "z": 4,
+      "color": 0,
+      "ballCount": 9
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 1,
+      "color": 1,
+      "ballCount": 9
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 2,
+      "color": 0,
+      "ballCount": 9
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": 2,
+      "color": 0,
+      "ballCount": 9
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 2,
+      "color": 0,
+      "ballCount": 9
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 2,
+      "color": 1,
+      "ballCount": 9
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 2,
+      "color": 1,
+      "ballCount": 9
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 2,
+      "color": 1,
+      "ballCount": 9
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 2,
+      "color": 2,
+      "ballCount": 9
+    }
+  ],
+  "containerQueue": [
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 2,
+      "capacity": 3
+    },
+    {
+      "color": 2,
+      "capacity": 3
+    },
+    {
+      "color": 2,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 0,
+      "capacity": 3
+    },
+    {
+      "color": 2,
+      "capacity": 3
+    },
+    {
+      "color": 2,
+      "capacity": 3
+    },
+    {
+      "color": 2,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 1,
+      "capacity": 3
+    },
+    {
+      "color": 2,
+      "capacity": 3
+    },
+    {
+      "color": 2,
+      "capacity": 3
+    },
+    {
+      "color": 2,
+      "capacity": 3
+    }
+  ]
+}
