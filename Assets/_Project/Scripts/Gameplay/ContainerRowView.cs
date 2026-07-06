@@ -17,13 +17,18 @@ namespace CubeBurst.Gameplay
         const int QueueRows = 6;
         internal static readonly Vector3 PillScale = new Vector3(1.08f, 0.89f, 1f);
 
-        // time the completed container's ghost takes to zoom away; the next
-        // container and the queue shift wait this long before moving in
-        const float GhostFlyTime = 0.34f;
+        // completion choreography: the full container squashes shut, hops out
+        // of its slot and pops away; the front queue pill starts flying into
+        // the freed slot mid-hop while the rest of the queue slides up with it
+        const float GhostCloseTime = 0.17f; // squash + rebound, slot still occupied
+        const float PillFlyDelay = 0.18f;   // queue starts moving as the ghost hops clear
+        const float PillFlyTime = 0.3f;
+        const float QueueShiftTime = 0.3f;
 
         GameSession _session;
         readonly ContainerSlotView[] _slots = new ContainerSlotView[ContainerManagerModel.SlotCount];
-        readonly List<GameObject> _queuePills = new List<GameObject>();
+        readonly Dictionary<ContainerModel, Transform> _queuePills = new Dictionary<ContainerModel, Transform>();
+        readonly List<ContainerModel> _staleScratch = new List<ContainerModel>();
         readonly bool[] _justCompleted = new bool[ContainerManagerModel.SlotCount];
 
         public static ContainerRowView Create(Transform parent, GameSession session)
@@ -51,14 +56,29 @@ namespace CubeBurst.Gameplay
 
         void OnEntered(int slot, ContainerModel model)
         {
-            // if this slot just completed, hold the incoming container + queue
-            // shift until the outgoing ghost has flown off; otherwise (initial
-            // fill) show it right away
-            float delay = _justCompleted[slot] ? GhostFlyTime : 0f;
+            bool afterComplete = _justCompleted[slot];
             _justCompleted[slot] = false;
-            _slots[slot].SetContainer(model, delay);
-            if (delay > 0f) DOVirtual.DelayedCall(delay, RebuildQueueDisplay);
-            else RebuildQueueDisplay();
+
+            Transform pill = null;
+            if (model != null && _queuePills.TryGetValue(model, out pill))
+                _queuePills.Remove(model);
+
+            if (afterComplete && pill != null)
+            {
+                // the front queue pill itself is promoted: it flies up into the
+                // freed slot, then swaps into the real socketed container
+                _slots[slot].PrepareContainer(model);
+                FlyPillIntoSlot(pill, slot);
+                SyncQueueDisplay(true, PillFlyDelay);
+            }
+            else
+            {
+                // initial fill (or queue ran out): pop-in, no flight
+                if (pill != null) Destroy(pill.gameObject);
+                float delay = afterComplete ? GhostCloseTime : 0f;
+                _slots[slot].SetContainer(model, delay);
+                SyncQueueDisplay(afterComplete, delay);
+            }
         }
 
         void OnCompleted(int slot, ContainerModel model)
@@ -68,23 +88,73 @@ namespace CubeBurst.Gameplay
             if (AudioManager.Instance != null) AudioManager.Instance.PlayComplete();
         }
 
-        /// Round-robin the global queue under the four columns so it reads
-        /// like the reference's per-column stacks.
-        void RebuildQueueDisplay()
+        void FlyPillIntoSlot(Transform pill, int slot)
         {
-            foreach (var p in _queuePills) if (p != null) Destroy(p);
-            _queuePills.Clear();
+            pill.name = "PromotingPill";
+            pill.GetComponent<SpriteRenderer>().sortingOrder = 66; // above active pills while in flight
+            pill.DOKill();
 
+            var slotView = _slots[slot];
+            var seq = DOTween.Sequence();
+            seq.AppendInterval(PillFlyDelay);
+            seq.Append(pill.DOLocalMove(new Vector3(SlotX[slot], 0f, 0.1f), PillFlyTime)
+                .SetEase(Ease.OutBack, 1.2f));
+            seq.OnComplete(() =>
+            {
+                if (pill != null) Destroy(pill.gameObject);
+                if (slotView != null) slotView.RevealArrived();
+            });
+        }
+
+        /// Round-robin the global queue under the four columns so it reads
+        /// like the reference's per-column stacks. Pills persist per container
+        /// and slide to their new spot instead of being rebuilt in place.
+        void SyncQueueDisplay(bool animate, float delay = 0f)
+        {
             var queue = _session.Containers.QueueSnapshot();
+            var alive = new HashSet<ContainerModel>();
             for (int i = 0; i < queue.Length; i++)
             {
                 int col = i % SlotX.Length, row = i / SlotX.Length;
                 if (row >= QueueRows) break;
-                var pill = CreatePillSprite(transform, Palette.Of(queue[i].Color), 61);
-                pill.name = "QueuePill";
-                pill.transform.localPosition = new Vector3(SlotX[col], -(row + 1) * RowStep, 0.1f);
-                pill.transform.localScale = PillScale;
-                _queuePills.Add(pill);
+                var model = queue[i];
+                alive.Add(model);
+                var target = new Vector3(SlotX[col], -(row + 1) * RowStep, 0.1f);
+
+                if (_queuePills.TryGetValue(model, out var pill))
+                {
+                    pill.DOKill();
+                    if (animate) pill.DOLocalMove(target, QueueShiftTime).SetEase(Ease.OutQuad).SetDelay(delay);
+                    else pill.localPosition = target;
+                }
+                else
+                {
+                    pill = CreatePillSprite(transform, Palette.Of(model.Color), 61).transform;
+                    pill.name = "QueuePill";
+                    pill.localScale = PillScale;
+                    _queuePills[model] = pill;
+                    if (animate)
+                    {
+                        // shifted into the visible window: slide up from one row below, fading in
+                        var sr = pill.GetComponent<SpriteRenderer>();
+                        var c = sr.color; c.a = 0f; sr.color = c;
+                        pill.localPosition = target + new Vector3(0f, -RowStep, 0f);
+                        pill.DOLocalMove(target, QueueShiftTime).SetEase(Ease.OutQuad).SetDelay(delay);
+                        sr.DOFade(1f, QueueShiftTime).SetDelay(delay);
+                    }
+                    else pill.localPosition = target;
+                }
+            }
+
+            // containers no longer in the queue (promoted pills were already
+            // removed from the map by OnEntered)
+            _staleScratch.Clear();
+            foreach (var kv in _queuePills)
+                if (!alive.Contains(kv.Key)) _staleScratch.Add(kv.Key);
+            foreach (var m in _staleScratch)
+            {
+                if (_queuePills[m] != null) Destroy(_queuePills[m].gameObject);
+                _queuePills.Remove(m);
             }
         }
 
@@ -153,12 +223,38 @@ namespace CubeBurst.Gameplay
             _visual.SetActive(model != null);
             if (model == null) return;
 
-            _pill.color = Palette.Of(model.Color);
-            RebuildSockets(model.Capacity);
-            RefreshDots();
+            ApplyModelVisual(model);
             _visual.transform.DOKill();
             _visual.transform.localScale = Vector3.zero; // stays invisible during the delay
             _visual.transform.DOScale(1f, 0.32f).SetEase(Ease.OutBack).SetDelay(appearDelay + 0.02f);
+        }
+
+        /// Same as SetContainer, but the visual stays hidden — the promoted
+        /// queue pill is flying here and RevealArrived does the swap.
+        public void PrepareContainer(ContainerModel model)
+        {
+            _model = model;
+            _visual.SetActive(false);
+            ApplyModelVisual(model);
+        }
+
+        /// The promoted pill just landed: swap it for the real socketed
+        /// container with a soft settle instead of a from-zero pop.
+        public void RevealArrived()
+        {
+            if (_model == null) return;
+            RefreshDots(); // catch balls that landed while the pill was in flight
+            _visual.SetActive(true);
+            _visual.transform.DOKill();
+            _visual.transform.localScale = Vector3.one * 0.92f;
+            _visual.transform.DOScale(1f, 0.18f).SetEase(Ease.OutBack);
+        }
+
+        void ApplyModelVisual(ContainerModel model)
+        {
+            _pill.color = Palette.Of(model.Color);
+            RebuildSockets(model.Capacity);
+            RefreshDots();
         }
 
         void RebuildSockets(int capacity)
@@ -205,14 +301,16 @@ namespace CubeBurst.Gameplay
             }
         }
 
-        /// On completion the filled container snaps shut (a quick squash, like
-        /// a lid closing) and then launches up and away as a detached ghost,
-        /// while the real slot is immediately reused for the next container.
+        /// On completion the filled container snaps shut (a squash, like a lid
+        /// closing), rebounds, hops out of its slot and pops away into a shard
+        /// burst, while the real slot is immediately reused for the next
+        /// container.
         public void PlayCompleteGhost()
         {
             // the completing ball fires this before the view refreshes, so make
             // sure all holes show filled before we clone the box to fly away
             RefreshDots();
+            var color = _model != null ? _model.Color : GameColor.Red; // _model is swapped right after this event
             var ghost = Instantiate(_visual, _visual.transform.position, Quaternion.identity);
             ghost.name = "Ghost";
             ghost.SetActive(true);
@@ -221,12 +319,19 @@ namespace CubeBurst.Gameplay
                 sr.sortingOrder += 10;
 
             var t = ghost.transform;
+            var popPos = t.position + new Vector3(0f, 0.9f, 0f);
             var seq = DOTween.Sequence();
-            seq.Append(t.DOScale(new Vector3(1.14f, 0.72f, 1f), 0.1f).SetEase(Ease.OutQuad)); // close
-            seq.Append(t.DOScale(Vector3.one, 0.05f).SetEase(Ease.OutQuad));                  // settle
-            seq.Append(t.DOMove(t.position + new Vector3(0f, 1.8f, 0f), 0.24f).SetEase(Ease.InBack)); // launch up
-            seq.Join(t.DOScale(0.12f, 0.24f).SetEase(Ease.InBack));                           // shrink away
-            seq.OnComplete(() => { if (ghost != null) Destroy(ghost); });
+            seq.Append(t.DOScale(new Vector3(1.16f, 0.66f, 1f), 0.09f).SetEase(Ease.OutQuad)); // lid slams shut
+            seq.Append(t.DOScale(new Vector3(0.94f, 1.1f, 1f), 0.08f).SetEase(Ease.OutQuad));  // rebound stretch
+            seq.Append(t.DOMoveY(t.position.y + 0.55f, 0.14f).SetEase(Ease.OutQuad));          // hop clear of the slot
+            seq.Join(t.DOScale(Vector3.one, 0.14f));
+            seq.Append(t.DOMoveY(popPos.y, 0.16f).SetEase(Ease.InQuad));                       // drift on up...
+            seq.Join(t.DOScale(Vector3.zero, 0.16f).SetEase(Ease.InBack));                     // ...and pop away
+            seq.OnComplete(() =>
+            {
+                if (ghost != null) Destroy(ghost);
+                if (this != null) DebrisBurst.Spawn(transform, popPos, color);
+            });
             Destroy(ghost, 2f); // safety net if the tween is killed (OnComplete handles the normal case)
         }
     }

@@ -12,6 +12,16 @@ namespace CubeBurst.Systems
         public static readonly Color UILight = Hex("#F4F8FC");
         public static readonly Color Gold = Hex("#F9C233");
 
+        // candy-UI colors (menus, buttons, popups)
+        public static readonly Color SkyBg = Hex("#A9CFFF");
+        public static readonly Color BtnGreen = Hex("#57C43D");
+        public static readonly Color BtnBlue = Hex("#3D8BFF");
+        public static readonly Color BtnOrange = Hex("#FFA132");
+        public static readonly Color BtnRed = Hex("#F4574A");
+        public static readonly Color BtnSlate = Hex("#8FA2C7");
+        public static readonly Color CardWhite = Hex("#FDFEFF");
+        public static readonly Color ShadowInk = new Color(0.07f, 0.11f, 0.28f, 0.35f);
+
         // reference-art styling colors
         public static readonly Color ShapeOutline = Hex("#3F63E0");   // blue silhouette line around the polycube
         public static readonly Color PanelBg = Hex("#C6D2F0");        // bottom panel

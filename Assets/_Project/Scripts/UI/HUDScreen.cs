@@ -20,41 +20,48 @@ namespace CubeBurst.UI
             var root = UIFactory.CreateScreen(canvas, "HUD", Color.clear);
             Root = root.gameObject;
 
-            UIFactory.CreateButton(root, "Pause", "II", new Vector2(0f, 1f), new Vector2(40f, -40f),
-                new Vector2(110f, 110f), Palette.UIDark, Color.white, 48,
+            // pause: dark candy square with a white bars icon
+            var pause = UIFactory.CreateCandyButton(root, "Pause", "", new Vector2(0f, 1f), new Vector2(40f, -40f),
+                new Vector2(112f, 112f), Palette.UIDark, 48,
                 ui.ShowPause);
+            UIFactory.CreateImage(pause.transform, "Icon", SpriteFactory.PauseIcon(),
+                new Vector2(0.5f, 0.5f), new Vector2(0f, 2f), new Vector2(64f, 64f), Color.white);
 
             // dark pill with a stopwatch icon and white time (reference style)
-            UIFactory.CreatePanel(root, "TimerPill", new Vector2(0.5f, 1f), new Vector2(0f, -46f),
-                new Vector2(330f, 100f), new Color(0.13f, 0.15f, 0.22f, 0.96f));
-            UIFactory.CreateImage(root, "TimerIcon", SpriteFactory.Stopwatch(),
-                new Vector2(0.5f, 1f), new Vector2(-110f, -66f), new Vector2(84f, 84f), Color.white);
-            _timer = UIFactory.CreateText(root, "Timer", "0:00", 58, Color.white,
-                new Vector2(0.5f, 1f), new Vector2(24f, -46f), new Vector2(240f, 100f));
+            var timerRt = UIFactory.CreateRect(root, "TimerPill");
+            UIFactory.Place(timerRt, new Vector2(0.5f, 1f), new Vector2(0f, -46f), new Vector2(340f, 104f));
+            UIFactory.CreateSoftShadow(timerRt, new Vector2(370f, 132f), new Vector2(0f, -10f));
+            var timerBody = UIFactory.CreateImage(timerRt, "Body", SpriteFactory.UIGloss(),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(340f, 104f),
+                new Color(0.16f, 0.19f, 0.28f, 0.98f));
+            timerBody.type = Image.Type.Sliced;
+            UIFactory.CreateImage(timerBody.transform, "TimerIcon", SpriteFactory.Stopwatch(),
+                new Vector2(0.5f, 0.5f), new Vector2(-110f, -4f), new Vector2(86f, 86f), Color.white);
+            _timer = UIFactory.CreateText(timerBody.transform, "Timer", "0:00", 58, Color.white,
+                new Vector2(0.5f, 0.5f), new Vector2(28f, 2f), new Vector2(240f, 100f));
 
-            // "Lvl" over the big number, white with a soft shadow (top-right)
-            var lvlLabel = UIFactory.CreateText(root, "LevelLabel", "Lvl", 46, Color.white,
-                new Vector2(1f, 1f), new Vector2(-56f, -30f), new Vector2(200f, 56f), TextAnchor.MiddleRight);
-            AddShadow(lvlLabel);
-            _levelNumber = UIFactory.CreateText(root, "LevelNumber", "1", 80, Color.white,
-                new Vector2(1f, 1f), new Vector2(-56f, -92f), new Vector2(200f, 84f), TextAnchor.MiddleRight);
-            AddShadow(_levelNumber);
+            // level badge pill (top-right)
+            var badgeRt = UIFactory.CreateRect(root, "LevelBadge");
+            UIFactory.Place(badgeRt, new Vector2(1f, 1f), new Vector2(-40f, -44f), new Vector2(210f, 96f));
+            UIFactory.CreateSoftShadow(badgeRt, new Vector2(240f, 124f), new Vector2(0f, -10f));
+            var badgeBody = UIFactory.CreateImage(badgeRt, "Body", SpriteFactory.UIGloss(),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(210f, 96f), Palette.BtnBlue);
+            badgeBody.type = Image.Type.Sliced;
+            _levelNumber = UIFactory.CreateText(badgeBody.transform, "LevelNumber", "LV 1", 52, Color.white,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, 3f), new Vector2(200f, 90f));
+            UIFactory.AddOutline(_levelNumber, Color.Lerp(Palette.BtnBlue, Color.black, 0.5f), 2f);
 
-            // big gray delivery counter over the bottom panel's top edge
+            // big gray tray-danger counter over the bottom panel's top edge
             _progress = UIFactory.CreateText(root, "Progress", "0/0", 88, Palette.CounterGray,
                 new Vector2(0.5f, 0.5f), new Vector2(0f, -58f), new Vector2(500f, 110f));
-        }
-
-        static void AddShadow(Text text)
-        {
-            var shadow = text.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0.1f, 0.16f, 0.35f, 0.4f);
+            var shadow = _progress.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(1f, 1f, 1f, 0.55f);
             shadow.effectDistance = new Vector2(0f, -4f);
         }
 
         public void Bind()
         {
-            _levelNumber.text = _gm.LevelIndex.ToString();
+            _levelNumber.text = $"LV {_gm.LevelIndex}";
             Refresh();
         }
 

@@ -1,5 +1,6 @@
 using CubeBurst.Gameplay;
 using CubeBurst.Systems;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,33 +10,46 @@ namespace CubeBurst.UI
     {
         public GameObject Root { get; private set; }
 
+        RectTransform _panel;
         Text _soundLabel;
 
         public void Build(Transform canvas, GameManager gm, UIController ui)
         {
-            var root = UIFactory.CreateScreen(canvas, "PausePopup", new Color(0f, 0f, 0f, 0.55f));
+            var root = UIFactory.CreateScreen(canvas, "PausePopup", new Color(0.05f, 0.08f, 0.18f, 0.6f));
             Root = root.gameObject;
 
-            var panel = UIFactory.CreatePanel(root, "Panel", new Vector2(0.5f, 0.5f), Vector2.zero,
-                new Vector2(760f, 940f), Palette.UILight);
+            var panelRt = UIFactory.CreateRect(root, "Panel");
+            UIFactory.Place(panelRt, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 900f));
+            _panel = panelRt;
 
-            UIFactory.CreateText(panel.transform, "Title", "PAUSED", 90, Palette.Outline,
-                new Vector2(0.5f, 1f), new Vector2(0f, -100f), new Vector2(700f, 120f));
+            UIFactory.CreateSoftShadow(panelRt, new Vector2(810f, 950f), new Vector2(0f, -16f));
+            var body = UIFactory.CreateImage(panelRt, "Body", SpriteFactory.UIRounded(),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 900f), Palette.CardWhite);
+            body.type = Image.Type.Sliced;
+            body.raycastTarget = true;
 
-            UIFactory.CreateButton(panel.transform, "Resume", "RESUME", new Vector2(0.5f, 1f), new Vector2(0f, -260f),
-                new Vector2(560f, 130f), Palette.UIAccent, Color.white, 54,
+            // ribbon header overlapping the panel's top edge
+            var ribbon = UIFactory.CreateImage(panelRt, "Ribbon", SpriteFactory.UIGloss(),
+                new Vector2(0.5f, 1f), new Vector2(0f, 60f), new Vector2(460f, 130f), Palette.BtnBlue);
+            ribbon.type = Image.Type.Sliced;
+            var title = UIFactory.CreateText(ribbon.transform, "Title", "PAUSED", 66, Color.white,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, 4f), new Vector2(440f, 120f));
+            UIFactory.AddOutline(title, Color.Lerp(Palette.BtnBlue, Color.black, 0.5f));
+
+            UIFactory.CreateCandyButton(panelRt, "Resume", "RESUME", new Vector2(0.5f, 1f), new Vector2(0f, -190f),
+                new Vector2(560f, 140f), Palette.BtnGreen, 56,
                 ui.HidePause);
 
-            UIFactory.CreateButton(panel.transform, "Restart", "RESTART", new Vector2(0.5f, 1f), new Vector2(0f, -430f),
-                new Vector2(560f, 130f), Palette.UIDark, Color.white, 54,
+            UIFactory.CreateCandyButton(panelRt, "Restart", "RESTART", new Vector2(0.5f, 1f), new Vector2(0f, -370f),
+                new Vector2(560f, 140f), Palette.BtnOrange, 56,
                 () =>
                 {
                     ui.HidePause();
                     gm.RestartLevel();
                 });
 
-            var sound = UIFactory.CreateButton(panel.transform, "Sound", "SOUND: ON", new Vector2(0.5f, 1f), new Vector2(0f, -600f),
-                new Vector2(560f, 130f), new Color(0.55f, 0.62f, 0.75f), Color.white, 50,
+            var sound = UIFactory.CreateCandyButton(panelRt, "Sound", "SOUND: ON", new Vector2(0.5f, 1f), new Vector2(0f, -550f),
+                new Vector2(560f, 140f), Palette.BtnSlate, 50,
                 () =>
                 {
                     AudioManager.Instance.SoundOn = !AudioManager.Instance.SoundOn;
@@ -43,13 +57,22 @@ namespace CubeBurst.UI
                 });
             _soundLabel = UIFactory.ButtonLabel(sound);
 
-            UIFactory.CreateButton(panel.transform, "Menu", "MAIN MENU", new Vector2(0.5f, 1f), new Vector2(0f, -770f),
-                new Vector2(560f, 130f), new Color(0.8f, 0.35f, 0.3f), Color.white, 50,
+            UIFactory.CreateCandyButton(panelRt, "Menu", "MAIN MENU", new Vector2(0.5f, 1f), new Vector2(0f, -730f),
+                new Vector2(560f, 140f), Palette.BtnRed, 50,
                 () =>
                 {
                     ui.HidePause();
                     gm.QuitToMenu();
                 });
+        }
+
+        public void Show()
+        {
+            Refresh();
+            Root.SetActive(true);
+            _panel.localScale = Vector3.one * 0.75f;
+            _panel.DOKill();
+            _panel.DOScale(1f, 0.3f).SetEase(Ease.OutBack).SetUpdate(true);
         }
 
         public void Refresh()

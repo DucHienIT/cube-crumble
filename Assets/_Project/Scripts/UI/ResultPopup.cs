@@ -13,6 +13,7 @@ namespace CubeBurst.UI
 
         GameManager _gm;
         RectTransform _panel;
+        Image _ribbon;
         Text _title;
         Text _reason;
         readonly Image[] _stars = new Image[3];
@@ -22,42 +23,52 @@ namespace CubeBurst.UI
         public void Build(Transform canvas, GameManager gm, UIController ui)
         {
             _gm = gm;
-            var root = UIFactory.CreateScreen(canvas, "ResultPopup", new Color(0f, 0f, 0f, 0.55f));
+            var root = UIFactory.CreateScreen(canvas, "ResultPopup", new Color(0.05f, 0.08f, 0.18f, 0.6f));
             Root = root.gameObject;
 
-            var panelImg = UIFactory.CreatePanel(root, "Panel", new Vector2(0.5f, 0.5f), Vector2.zero,
-                new Vector2(800f, 900f), Palette.UILight);
-            _panel = (RectTransform)panelImg.transform;
+            var panelRt = UIFactory.CreateRect(root, "Panel");
+            UIFactory.Place(panelRt, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(800f, 960f));
+            _panel = panelRt;
 
-            _title = UIFactory.CreateText(_panel, "Title", "LEVEL CLEAR!", 84, Palette.Outline,
-                new Vector2(0.5f, 1f), new Vector2(0f, -110f), new Vector2(760f, 120f));
+            UIFactory.CreateSoftShadow(panelRt, new Vector2(850f, 1010f), new Vector2(0f, -16f));
+            var body = UIFactory.CreateImage(panelRt, "Body", SpriteFactory.UIRounded(),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(800f, 960f), Palette.CardWhite);
+            body.type = Image.Type.Sliced;
+            body.raycastTarget = true;
+
+            _ribbon = UIFactory.CreateImage(panelRt, "Ribbon", SpriteFactory.UIGloss(),
+                new Vector2(0.5f, 1f), new Vector2(0f, 60f), new Vector2(560f, 130f), Palette.BtnGreen);
+            _ribbon.type = Image.Type.Sliced;
+            _title = UIFactory.CreateText(_ribbon.transform, "Title", "LEVEL CLEAR!", 60, Color.white,
+                new Vector2(0.5f, 0.5f), new Vector2(0f, 4f), new Vector2(540f, 120f));
+            UIFactory.AddOutline(_title, new Color(0.10f, 0.14f, 0.22f));
 
             for (int i = 0; i < 3; i++)
-                _stars[i] = UIFactory.CreateImage(_panel, "Star" + i, SpriteFactory.Star(),
-                    new Vector2(0.5f, 1f), new Vector2((i - 1) * 170f, -280f + (i == 1 ? 30f : 0f)),
-                    new Vector2(i == 1 ? 170f : 140f, i == 1 ? 170f : 140f), Palette.Gold);
+                _stars[i] = UIFactory.CreateImage(panelRt, "Star" + i, SpriteFactory.Star(),
+                    new Vector2(0.5f, 1f), new Vector2((i - 1) * 180f, -190f + (i == 1 ? 30f : 0f)),
+                    new Vector2(i == 1 ? 185f : 150f, i == 1 ? 185f : 150f), Palette.Gold);
 
-            _reason = UIFactory.CreateText(_panel, "Reason", "", 48, new Color(0.45f, 0.3f, 0.3f),
-                new Vector2(0.5f, 1f), new Vector2(0f, -300f), new Vector2(700f, 90f));
+            _reason = UIFactory.CreateText(panelRt, "Reason", "", 48, new Color(0.45f, 0.3f, 0.3f),
+                new Vector2(0.5f, 1f), new Vector2(0f, -270f), new Vector2(700f, 90f));
 
-            _next = UIFactory.CreateButton(_panel, "Next", "NEXT LEVEL", new Vector2(0.5f, 1f), new Vector2(0f, -470f),
-                new Vector2(560f, 130f), Palette.UIAccent, Color.white, 54,
+            _next = UIFactory.CreateCandyButton(panelRt, "Next", "NEXT LEVEL", new Vector2(0.5f, 1f), new Vector2(0f, -430f),
+                new Vector2(560f, 140f), Palette.BtnGreen, 54,
                 () =>
                 {
                     ui.HideResult();
                     gm.NextLevel();
                 });
 
-            _retry = UIFactory.CreateButton(_panel, "Retry", "REPLAY", new Vector2(0.5f, 1f), new Vector2(0f, -630f),
-                new Vector2(560f, 130f), Palette.UIDark, Color.white, 54,
+            _retry = UIFactory.CreateCandyButton(panelRt, "Retry", "REPLAY", new Vector2(0.5f, 1f), new Vector2(0f, -600f),
+                new Vector2(560f, 140f), Palette.BtnOrange, 54,
                 () =>
                 {
                     ui.HideResult();
                     gm.RestartLevel();
                 });
 
-            UIFactory.CreateButton(_panel, "Menu", "MAIN MENU", new Vector2(0.5f, 1f), new Vector2(0f, -790f),
-                new Vector2(560f, 130f), new Color(0.55f, 0.62f, 0.75f), Color.white, 50,
+            UIFactory.CreateCandyButton(panelRt, "Menu", "MAIN MENU", new Vector2(0.5f, 1f), new Vector2(0f, -770f),
+                new Vector2(560f, 140f), Palette.BtnSlate, 50,
                 () =>
                 {
                     ui.HideResult();
@@ -68,13 +79,8 @@ namespace CubeBurst.UI
         public void Show(bool win, int stars, GameStatus reason)
         {
             _title.text = win ? "LEVEL CLEAR!" : "LEVEL FAILED";
+            _ribbon.color = win ? Palette.BtnGreen : Palette.BtnRed;
             _reason.text = win ? "" : reason == GameStatus.LostTime ? "Time's up!" : "The tray overflowed!";
-
-            for (int i = 0; i < 3; i++)
-            {
-                _stars[i].gameObject.SetActive(win);
-                _stars[i].color = i < stars ? Palette.Gold : new Color(0f, 0f, 0f, 0.12f);
-            }
 
             bool hasNext = win && _gm.LevelIndex < GameManager.TotalLevels;
             _next.gameObject.SetActive(hasNext);
@@ -84,6 +90,20 @@ namespace CubeBurst.UI
             _panel.localScale = Vector3.one * 0.7f;
             _panel.DOKill();
             _panel.DOScale(1f, 0.35f).SetEase(Ease.OutBack).SetUpdate(true);
+
+            for (int i = 0; i < 3; i++)
+            {
+                var star = _stars[i];
+                star.gameObject.SetActive(win);
+                if (!win) continue;
+                star.color = i < stars ? Palette.Gold : new Color(0f, 0f, 0f, 0.10f);
+                star.transform.DOKill();
+                star.transform.localScale = Vector3.zero;
+                star.transform.DOScale(1f, 0.4f)
+                    .SetEase(Ease.OutBack, 2.2f)
+                    .SetDelay(0.25f + i * 0.15f)
+                    .SetUpdate(true);
+            }
         }
     }
 }

@@ -32,6 +32,13 @@ namespace CubeBurst.Systems
         public static Sprite Socket() => Cached("socket", CreateSocket);
         public static Sprite Stopwatch() => Cached("stopwatch", CreateStopwatch);
 
+        // candy-UI sprites
+        public static Sprite UIGloss() => Cached("uiGloss", CreateUIGloss);
+        public static Sprite UISoftShadow() => Cached("uiSoftShadow", CreateUISoftShadow);
+        public static Sprite UIGradient() => Cached("uiGradient", CreateUIGradient);
+        public static Sprite Padlock() => Cached("padlock", CreatePadlock);
+        public static Sprite PauseIcon() => Cached("pauseIcon", CreatePauseIcon);
+
         static Sprite Cached(string key, Func<Sprite> create)
         {
             if (!Cache.TryGetValue(key, out var s) || s == null)
@@ -460,6 +467,113 @@ namespace CubeBurst.Systems
                     c = body; // crown button on top
                 }
                 px[y * S + x] = c;
+            }
+            return ToSprite(tex, px);
+        }
+
+        /// 96x96 9-sliced "candy" rounded rect: baked vertical gloss gradient,
+        /// top highlight, darker bottom lip and rim. Tint with any color.
+        static Sprite CreateUIGloss()
+        {
+            const int S = 96;
+            const float radius = 30f;
+            var tex = NewTex(S, S);
+            var px = new Color[S * S];
+            var c0 = new Vector2(S / 2f, S / 2f);
+            for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float dist = RoundedRectSdf(new Vector2(x + 0.5f, y + 0.5f) - c0,
+                    new Vector2(S / 2f - 1f, S / 2f - 1f), radius);
+                if (dist > 0.75f)
+                {
+                    px[y * S + x] = Color.clear;
+                    continue;
+                }
+                float g = 0.86f + 0.14f * (y / (float)(S - 1));      // brighter toward top
+                if (y < 14) g *= 0.76f + 0.24f * (y / 14f);          // darker bottom lip
+                if (y > S - 20 && dist < -7f) g = Mathf.Min(1f, g + 0.10f); // top gloss band
+                if (dist > -3f) g *= 0.58f;                          // dark rim
+                px[y * S + x] = new Color(g, g, g, Mathf.Clamp01(-dist + 0.75f));
+            }
+            return ToSprite(tex, px, new Vector4(34, 34, 34, 34));
+        }
+
+        /// 96x96 9-sliced blurry rounded rect for drop shadows (tint dark, low alpha).
+        static Sprite CreateUISoftShadow()
+        {
+            const int S = 96;
+            var tex = NewTex(S, S);
+            var px = new Color[S * S];
+            var c0 = new Vector2(S / 2f, S / 2f);
+            for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float dist = RoundedRectSdf(new Vector2(x + 0.5f, y + 0.5f) - c0,
+                    new Vector2(S / 2f - 12f, S / 2f - 12f), 26f);
+                float a = Mathf.Clamp01(1f - (dist + 12f) / 16f);
+                px[y * S + x] = new Color(1f, 1f, 1f, a * a); // squared for softer falloff
+            }
+            return ToSprite(tex, px, new Vector4(44, 44, 44, 44));
+        }
+
+        /// Tall thin vertical gradient (bright top) for full-screen backgrounds; tint decides hue.
+        static Sprite CreateUIGradient()
+        {
+            const int W = 8, H = 256;
+            var tex = NewTex(W, H);
+            var px = new Color[W * H];
+            for (int y = 0; y < H; y++)
+            {
+                float g = Mathf.Lerp(0.72f, 1f, y / (float)(H - 1));
+                for (int x = 0; x < W; x++)
+                    px[y * W + x] = new Color(g, g, g, 1f);
+            }
+            return ToSprite(tex, px);
+        }
+
+        /// White padlock with keyhole cutout (locked levels).
+        static Sprite CreatePadlock()
+        {
+            const int S = 96;
+            var tex = NewTex(S, S);
+            var px = new Color[S * S];
+            for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                var p = new Vector2(x + 0.5f, y + 0.5f);
+                float body = RoundedRectSdf(p - new Vector2(48f, 29f), new Vector2(30f, 19f), 10f);
+                float d = body;
+                if (p.y > 48f)
+                {
+                    float ring = Mathf.Abs(Vector2.Distance(p, new Vector2(48f, 50f)) - 18f) - 6.5f;
+                    d = Mathf.Min(d, ring);
+                }
+                float a = Mathf.Clamp01(-d + 0.75f);
+                // keyhole: circle + slot, cut out of the body
+                float hole = Mathf.Min(
+                    Vector2.Distance(p, new Vector2(48f, 33f)) - 6f,
+                    RoundedRectSdf(p - new Vector2(48f, 24f), new Vector2(3.2f, 8f), 3.2f));
+                a = Mathf.Min(a, Mathf.Clamp01(hole + 0.25f));
+                px[y * S + x] = new Color(1f, 1f, 1f, a);
+            }
+            return ToSprite(tex, px);
+        }
+
+        /// Two rounded vertical bars (pause icon).
+        static Sprite CreatePauseIcon()
+        {
+            const int S = 64;
+            var tex = NewTex(S, S);
+            var px = new Color[S * S];
+            for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                var p = new Vector2(x + 0.5f, y + 0.5f);
+                float d = Mathf.Min(
+                    RoundedRectSdf(p - new Vector2(23f, 32f), new Vector2(6f, 19f), 6f),
+                    RoundedRectSdf(p - new Vector2(41f, 32f), new Vector2(6f, 19f), 6f));
+                px[y * S + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(-d + 0.75f));
             }
             return ToSprite(tex, px);
         }

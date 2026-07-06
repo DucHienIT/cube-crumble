@@ -77,8 +77,7 @@ namespace CubeBurst.UI
         {
             if (!_gm.IsPlaying) return;
             _gm.SetPaused(true);
-            _pause.Refresh();
-            _pause.Root.SetActive(true);
+            _pause.Show();
         }
 
         public void HidePause()
