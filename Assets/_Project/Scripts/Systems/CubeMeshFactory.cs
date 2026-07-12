@@ -24,9 +24,15 @@ namespace CubeBurst.Systems
         static readonly Dictionary<Color, Material> BallCache = new Dictionary<Color, Material>();
         static readonly Dictionary<Color, Material> SolidCache = new Dictionary<Color, Material>();
 
+        // Baked mesh assets live under Resources/Meshes/ (see MeshTools "Bake
+        // Meshes"). The accessors load them first and only fall back to building
+        // at runtime when the assets are missing, so behavior is identical even
+        // before the meshes have been baked.
+        const string MeshDir = "Meshes/";
+
         public static Mesh UnitCube()
         {
-            if (_cube == null) _cube = BuildCube(false);
+            if (_cube == null) _cube = LoadOrBuild("CubeBurstCube", () => BuildCube(false));
             return _cube;
         }
 
@@ -34,7 +40,7 @@ namespace CubeBurst.Systems
         /// copy behind a cube reads as a silhouette outline (inverted hull).
         public static Mesh InvertedCube()
         {
-            if (_invertedCube == null) _invertedCube = BuildCube(true);
+            if (_invertedCube == null) _invertedCube = LoadOrBuild("CubeBurstCubeHull", () => BuildCube(true));
             return _invertedCube;
         }
 
@@ -42,9 +48,22 @@ namespace CubeBurst.Systems
         /// x/y), so the ball texture bakes a fake-lit look with zero lights.
         public static Mesh Sphere()
         {
-            if (_sphere == null) _sphere = BuildSphere();
+            if (_sphere == null) _sphere = LoadOrBuild("CubeBurstBall", BuildSphere);
             return _sphere;
         }
+
+        static Mesh LoadOrBuild(string name, System.Func<Mesh> build)
+        {
+            var asset = Resources.Load<Mesh>(MeshDir + name);
+            return asset != null ? asset : build();
+        }
+
+        // Editor baking entry points (MeshTools). Each returns a fresh mesh
+        // whose name matches its Resources asset file, so re-baking overwrites
+        // the right asset.
+        public static Mesh BuildUnitCubeMesh() => BuildCube(false);
+        public static Mesh BuildInvertedCubeMesh() => BuildCube(true);
+        public static Mesh BuildSphereMesh() => BuildSphere();
 
         public static Material[] MaterialsFor(GameColor color) => MaterialsForTint(Palette.Of(color));
 
