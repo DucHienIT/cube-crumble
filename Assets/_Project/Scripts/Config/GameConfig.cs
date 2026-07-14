@@ -13,8 +13,8 @@ namespace CubeBurst.Systems
         public int targetFrameRate = 60;
 
         [Header("Camera")]
-        [Tooltip("Ortho size = max(minOrthoSize, halfWidth / aspect) — keeps the play field fully visible on narrow screens.")]
-        public float cameraMinOrthoSize = 6f;
+        [Tooltip("Ortho size = max(minOrthoSize, halfWidth / aspect). minOrthoSize must cover the full VERTICAL play field (shape at top ~+6.2 down to the lowest queue pill ~-7.8 with the camera at Y=0), so on wide/short screens the container queue is never clipped off the bottom. halfWidth grows ortho on narrow screens to keep the board's width visible.")]
+        public float cameraMinOrthoSize = 7.9f;
         public float cameraHalfWidth = 3.9f;
 
         [Header("Levels & stars")]

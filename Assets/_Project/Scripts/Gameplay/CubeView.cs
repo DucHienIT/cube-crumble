@@ -17,7 +17,11 @@ namespace CubeBurst.Gameplay
         public int GZ { get; private set; }
 
         Vector3 _homePos;
-        MeshRenderer _renderer;
+
+        // Authored on Cube.prefab and wired in the Inspector — no GetComponent
+        // at runtime.
+        [SerializeField] MeshFilter _meshFilter;
+        [SerializeField] MeshRenderer _renderer;
 
         /// The prefab carries MeshFilter/MeshRenderer/BoxCollider (collider
         /// size is a prefab tunable); the procedural mesh and per-color
@@ -27,8 +31,7 @@ namespace CubeBurst.Gameplay
             name = $"Cube_{cube.Id}";
             transform.localPosition = localPos;
 
-            GetComponent<MeshFilter>().sharedMesh = CubeMeshFactory.UnitCube();
-            _renderer = GetComponent<MeshRenderer>();
+            _meshFilter.sharedMesh = CubeMeshFactory.UnitCube();
             _renderer.sharedMaterials = CubeMeshFactory.MaterialsFor(cube.Color);
 
             CubeId = cube.Id;

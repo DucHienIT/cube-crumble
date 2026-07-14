@@ -111,7 +111,13 @@ namespace CubeBurst.Systems
 
         static Shader UnlitShader()
         {
-            var shader = Shader.Find("Unlit/Texture");
+            // Custom opaque unlit with explicit Cull/ZWrite/ZTest — the legacy
+            // built-in "Unlit/Texture" cross-compiles unreliably for GLES/WebGL
+            // under the 2D renderer, dropping the cubes' camera-facing faces in
+            // WebGL builds. Lives in Resources/ so Shader.Find resolves it in a
+            // build (Resources assets are always included).
+            var shader = Shader.Find("CubeBurst/UnlitCube");
+            if (shader == null) shader = Shader.Find("Unlit/Texture");
             if (shader == null) shader = Shader.Find("Sprites/Default");
             return shader;
         }

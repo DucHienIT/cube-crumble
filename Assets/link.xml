@@ -1,0 +1,14 @@
+<!--
+  Keeps WebGL/IL2CPP managed code stripping from removing physics types that
+  are only ever created at runtime via AddComponent and never referenced
+  statically or serialized on a prefab. Without this, in a build:
+    AddComponent<SphereCollider>() and AddComponent<Rigidbody>() return null
+    (console: "AddComponent asking for SphereCollider which is not a Unity
+    engine type"), so every ball landing in the shared tray throws a
+    NullReferenceException.
+  See SharedSlotView.AcceptBall. (BoxCollider survives on its own because it is
+  serialized on the Cube prefab; these two are the only runtime-only ones.)
+-->
+<linker>
+  <assembly fullname="UnityEngine.PhysicsModule" preserve="all" />
+</linker>

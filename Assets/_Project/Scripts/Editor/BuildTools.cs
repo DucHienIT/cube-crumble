@@ -2,27 +2,19 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
-using UnityEditor.Toolbars;
 using UnityEngine;
 
 namespace CubeBurst.EditorTools
 {
     /// <summary>
-    /// WebGL build pipeline for Cube Burst: a top-level "Build" menu plus a
-    /// "Build WebGL" button on the editor's main toolbar (Unity 6.3
-    /// MainToolbarElement API). Every build first applies the project's WebGL
-    /// player settings so the output runs from any static web server
-    /// (Gzip + JS decompression fallback → itch.io / GitHub Pages / any CDN).
+    /// WebGL build pipeline for Cube Burst: a top-level "Build" menu. Every build
+    /// first applies the project's WebGL player settings so the output runs from
+    /// any static web server (Gzip + JS decompression fallback → itch.io /
+    /// GitHub Pages / any CDN).
     /// </summary>
     public static class BuildTools
     {
         const string OutputDir = "Builds/WebGL";
-
-        [MainToolbarElement("CubeBurst/BuildWebGL", defaultDockPosition = MainToolbarDockPosition.Right)]
-        static MainToolbarButton CreateToolbarButton()
-        {
-            return new MainToolbarButton(new MainToolbarContent("Build WebGL"), BuildWebGL);
-        }
 
         [MenuItem("Build/Build WebGL", priority = 0)]
         public static void BuildWebGL()

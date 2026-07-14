@@ -11,26 +11,43 @@ namespace CubeBurst.Gameplay
     {
         public BallRoute Route { get; private set; }
 
+        // Every component the ball needs is authored on Ball.prefab and wired
+        // here in the Inspector — nothing is AddComponent'd or GetComponent'd at
+        // runtime, so code stripping can never drop the physics types in a build
+        // (the bug that made tray balls throw NullReferenceException on WebGL).
+        [SerializeField] MeshFilter _meshFilter;
+        [SerializeField] MeshRenderer _meshRenderer;
+        [SerializeField] TrailRenderer _trail;
+        [SerializeField] SphereCollider _collider;
+        [SerializeField] Rigidbody _body;
+
         Vector3 _from, _ctrl, _to;
         float _t, _delay;
         static float Duration => Systems.GameConfig.Active.ballFlightDuration;
         Action<BallView> _onArrive;
         bool _arrived;
-        TrailRenderer _trail;
 
-        /// The prefab carries the components and their tunables (scale,
-        /// shadow flags, trail time/width — edit them on Ball.prefab); only
-        /// the procedural assets (sphere mesh, matcap material, trail tint)
+        /// The parked ball's rigidbody, so the tray's out-of-bounds safety net
+        /// can zero its velocity without a GetComponent.
+        public Rigidbody Body => _body;
+
+        /// The prefab carries the components and their tunables (scale, shadow
+        /// flags, trail time/width, and the physics config on the disabled
+        /// SphereCollider + kinematic Rigidbody — edit them on Ball.prefab);
+        /// only the procedural assets (sphere mesh, matcap material, trail tint)
         /// are assigned here.
         public void Launch(BallRoute route, Vector3 from, Vector3 to,
             float delay, Action<BallView> onArrive)
         {
             transform.position = from;
 
-            GetComponent<MeshFilter>().sharedMesh = CubeMeshFactory.Sphere();
-            GetComponent<MeshRenderer>().sharedMaterial = CubeMeshFactory.BallMaterialFor(route.Color);
+            // physics stays inert during flight — BallView drives the transform
+            _collider.enabled = false;
+            _body.isKinematic = true;
 
-            _trail = GetComponent<TrailRenderer>();
+            _meshFilter.sharedMesh = CubeMeshFactory.Sphere();
+            _meshRenderer.sharedMaterial = CubeMeshFactory.BallMaterialFor(route.Color);
+
             _trail.material = CubeMeshFactory.TrailMaterial();
             _trail.emitting = false; // starts once the ball leaves the spawn point
             var tint = Palette.Of(route.Color);
@@ -56,6 +73,25 @@ namespace CubeBurst.Gameplay
             _trail.emitting = false;
             Destroy(_trail);
             _trail = null;
+        }
+
+        /// Turns the just-landed ball into a live physics ball in the tray: the
+        /// flight loop stops and the prefab's Rigidbody/SphereCollider (mass,
+        /// drag, constraints, etc. authored on Ball.prefab) wake up. Only the
+        /// dynamic bits are set here — no component is created.
+        public void EnablePhysics(Vector3 velocity)
+        {
+            enabled = false; // stop the flight Update
+            _arrived = true;
+            _collider.enabled = true;
+            _body.isKinematic = false;
+            // Interpolation is OFF during flight (the ball is a kinematic body
+            // driven straight from transform.position each frame — interpolation
+            // would fight that and render it lagging/floating mid-air). Turn it
+            // on now so the piling physics ball moves smoothly in the tray.
+            _body.interpolation = RigidbodyInterpolation.Interpolate;
+            _body.maxDepenetrationVelocity = 1f; // don't catapult stacked balls out
+            _body.velocity = velocity;
         }
 
         void Update()

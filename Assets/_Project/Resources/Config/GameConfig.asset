@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: GameConfig
   m_EditorClassIdentifier:
   targetFrameRate: 60
-  cameraMinOrthoSize: 6
+  cameraMinOrthoSize: 7.9
   cameraHalfWidth: 3.9
   totalLevels: 30
   threeStarTimeFraction: 0.5
