@@ -12,15 +12,16 @@ namespace CubeBurst.Gameplay
     public class ContainerRowView : MonoBehaviour
     {
         static readonly float[] SlotX = { -2.7f, -0.9f, 0.9f, 2.7f };
-        const float RowStep = 0.8f;
+        const float RowStep = 0.85f; // +15% vertical gap so stacked queue pills never touch
         const int QueueRows = 6;
-        internal static readonly Vector3 PillScale = new Vector3(1.08f, 0.89f, 1f);
+        // pills are real 3D loaf meshes now; a small forward tilt reveals the
+        // dark side wall (their thickness) so they read as solid objects
+        internal static readonly Vector3 PillTilt = new Vector3(16f, 0f, 0f);
 
         // completion choreography: the full container squashes shut, hops out
         // of its slot and pops away; the front queue pill starts flying into
         // the freed slot mid-hop while the rest of the queue slides up with it
         const float GhostCloseTime = 0.17f; // squash + rebound, slot still occupied
-        const float PillFlyDelay = 0.18f;   // queue starts moving as the ghost hops clear
         const float PillFlyTime = 0.3f;
         const float QueueShiftTime = 0.3f;
 
@@ -62,10 +63,11 @@ namespace CubeBurst.Gameplay
             if (afterComplete && pill != null)
             {
                 // the front queue pill itself is promoted: it flies up into the
-                // freed slot, then swaps into the real socketed container
+                // freed slot while the rest of the column slides up in lockstep
+                // (no delay), so the stack never shows a gap under the slot
                 _slots[slot].PrepareContainer(model);
                 FlyPillIntoSlot(pill, slot);
-                SyncQueueDisplay(true, PillFlyDelay);
+                SyncQueueDisplay(true, 0f);
             }
             else
             {
@@ -87,12 +89,11 @@ namespace CubeBurst.Gameplay
         void FlyPillIntoSlot(Transform pill, int slot)
         {
             pill.name = "PromotingPill";
-            pill.GetComponent<SpriteRenderer>().sortingOrder = 66; // above active pills while in flight
+            pill.GetComponent<Renderer>().sortingOrder = 66; // above active pills while in flight
             pill.DOKill();
 
             var slotView = _slots[slot];
             var seq = DOTween.Sequence();
-            seq.AppendInterval(PillFlyDelay);
             seq.Append(pill.DOLocalMove(new Vector3(SlotX[slot], 0f, 0.1f), PillFlyTime)
                 .SetEase(Ease.OutBack, 1.2f));
             seq.OnComplete(() =>
@@ -107,38 +108,41 @@ namespace CubeBurst.Gameplay
         /// and slide to their new spot instead of being rebuilt in place.
         void SyncQueueDisplay(bool animate, float delay = 0f)
         {
-            var queue = _session.Containers.QueueSnapshot();
             var alive = new HashSet<ContainerModel>();
-            for (int i = 0; i < queue.Length; i++)
+            // each column is its own stack: item queued under column c slides up
+            // into slot c when that slot completes (no cross-column jumps)
+            for (int col = 0; col < SlotX.Length; col++)
             {
-                int col = i % SlotX.Length, row = i / SlotX.Length;
-                if (row >= QueueRows) break;
-                var model = queue[i];
-                alive.Add(model);
-                var target = new Vector3(SlotX[col], -(row + 1) * RowStep, 0.1f);
+                var column = _session.Containers.ColumnSnapshot(col);
+                for (int row = 0; row < column.Length && row < QueueRows; row++)
+                {
+                    var model = column[row];
+                    alive.Add(model);
+                    var target = new Vector3(SlotX[col], -(row + 1) * RowStep, 0.1f);
 
-                if (_queuePills.TryGetValue(model, out var pill))
-                {
-                    pill.DOKill();
-                    if (animate) pill.DOLocalMove(target, QueueShiftTime).SetEase(Ease.OutQuad).SetDelay(delay);
-                    else pill.localPosition = target;
-                }
-                else
-                {
-                    pill = CreatePillSprite(transform, Palette.Of(model.Color), 61).transform;
-                    pill.name = "QueuePill";
-                    pill.localScale = PillScale;
-                    _queuePills[model] = pill;
-                    if (animate)
+                    if (_queuePills.TryGetValue(model, out var pill))
                     {
-                        // shifted into the visible window: slide up from one row below, fading in
-                        var sr = pill.GetComponent<SpriteRenderer>();
-                        var c = sr.color; c.a = 0f; sr.color = c;
-                        pill.localPosition = target + new Vector3(0f, -RowStep, 0f);
-                        pill.DOLocalMove(target, QueueShiftTime).SetEase(Ease.OutQuad).SetDelay(delay);
-                        sr.DOFade(1f, QueueShiftTime).SetDelay(delay);
+                        pill.DOKill();
+                        if (animate) pill.DOLocalMove(target, QueueShiftTime).SetEase(Ease.OutQuad).SetDelay(delay);
+                        else pill.localPosition = target;
                     }
-                    else pill.localPosition = target;
+                    else
+                    {
+                        pill = CreatePillSprite(transform, Palette.Of(model.Color), 61).transform;
+                        pill.name = "QueuePill";
+                        pill.localRotation = Quaternion.Euler(PillTilt);
+                        _queuePills[model] = pill;
+                        if (animate)
+                        {
+                            // shifted into the visible window: slide up from one
+                            // row below with a small pop
+                            pill.localPosition = target + new Vector3(0f, -RowStep, 0f);
+                            pill.localScale = Vector3.zero;
+                            pill.DOLocalMove(target, QueueShiftTime).SetEase(Ease.OutQuad).SetDelay(delay);
+                            pill.DOScale(1f, QueueShiftTime).SetEase(Ease.OutBack).SetDelay(delay);
+                        }
+                        else pill.localPosition = target;
+                    }
                 }
             }
 
@@ -156,12 +160,14 @@ namespace CubeBurst.Gameplay
 
         internal static GameObject CreatePillSprite(Transform parent, Color color, int order)
         {
-            var go = new GameObject("Pill", typeof(SpriteRenderer));
+            var go = new GameObject("Pill", typeof(MeshFilter), typeof(MeshRenderer));
             go.transform.SetParent(parent, false);
-            var sr = go.GetComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Pill();
-            sr.color = color;
-            sr.sortingOrder = order;
+            go.GetComponent<MeshFilter>().sharedMesh = CubeMeshFactory.PillMesh();
+            var mr = go.GetComponent<MeshRenderer>();
+            mr.sharedMaterials = CubeMeshFactory.PillMaterials(color);
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            mr.sortingOrder = order;
             return go;
         }
 
@@ -178,7 +184,7 @@ namespace CubeBurst.Gameplay
 
         ContainerModel _model;
         GameObject _visual;
-        SpriteRenderer _pill;
+        MeshRenderer _pill;
         DebrisPiece _debrisPrefab;
         readonly List<GameObject> _sockets = new List<GameObject>();
         readonly List<MeshRenderer> _fillBalls = new List<MeshRenderer>();
@@ -190,7 +196,7 @@ namespace CubeBurst.Gameplay
             int cap = _model != null ? _model.Capacity : 3;
             if (socketIndex < 0) socketIndex = 0;
             float x = (socketIndex - (cap - 1) * 0.5f) * SocketSpacing;
-            return transform.position + new Vector3(x, 0.05f, -0.2f);
+            return transform.position + new Vector3(x, 0.03f, -0.28f);
         }
 
         public static ContainerSlotView Create(Transform parent, Vector3 localPos, DebrisPiece debrisPrefab)
@@ -203,10 +209,12 @@ namespace CubeBurst.Gameplay
             view._debrisPrefab = debrisPrefab;
             view._visual = new GameObject("Visual");
             view._visual.transform.SetParent(go.transform, false);
+            // tilt the whole container (pill + sockets + fill balls) so the 3D
+            // loaf mesh shows its thickness
+            view._visual.transform.localRotation = Quaternion.Euler(ContainerRowView.PillTilt);
 
             var pillGo = ContainerRowView.CreatePillSprite(view._visual.transform, Color.white, 62);
-            pillGo.transform.localScale = ContainerRowView.PillScale;
-            view._pill = pillGo.GetComponent<SpriteRenderer>();
+            view._pill = pillGo.GetComponent<MeshRenderer>();
 
             view._visual.SetActive(false);
             return view;
@@ -250,7 +258,7 @@ namespace CubeBurst.Gameplay
 
         void ApplyModelVisual(ContainerModel model)
         {
-            _pill.color = Palette.Of(model.Color);
+            _pill.sharedMaterials = CubeMeshFactory.PillMaterials(Palette.Of(model.Color));
             RebuildSockets(model.Capacity);
             RefreshDots();
         }
@@ -268,7 +276,7 @@ namespace CubeBurst.Gameplay
 
                 var socket = new GameObject("Socket", typeof(SpriteRenderer));
                 socket.transform.SetParent(_visual.transform, false);
-                socket.transform.localPosition = new Vector3(x, 0f, -0.05f);
+                socket.transform.localPosition = new Vector3(x, 0f, -0.3f);
                 socket.transform.localScale = Vector3.one * 0.88f;
                 var sr = socket.GetComponent<SpriteRenderer>();
                 sr.sprite = SpriteFactory.Socket();
@@ -277,8 +285,11 @@ namespace CubeBurst.Gameplay
 
                 var ballGo = new GameObject("FillBall", typeof(MeshFilter), typeof(MeshRenderer));
                 ballGo.transform.SetParent(_visual.transform, false);
-                ballGo.transform.localPosition = new Vector3(x, 0.02f, -0.1f);
-                ballGo.transform.localScale = Vector3.one * 0.3f;
+                // seated deeper in the socket (less negative z = further into the
+                // pill, away from the camera) so the ball nests in the hole
+                // instead of poking out in front of it
+                ballGo.transform.localPosition = new Vector3(x, 0.0f, -0.28f);
+                ballGo.transform.localScale = Vector3.one * 0.33f;
                 ballGo.GetComponent<MeshFilter>().sharedMesh = CubeMeshFactory.Sphere();
                 var mr = ballGo.GetComponent<MeshRenderer>();
                 mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -309,22 +320,23 @@ namespace CubeBurst.Gameplay
             // sure all holes show filled before we clone the box to fly away
             RefreshDots();
             var color = _model != null ? _model.Color : GameColor.Red; // _model is swapped right after this event
-            var ghost = Instantiate(_visual, _visual.transform.position, Quaternion.identity);
+            var ghost = Instantiate(_visual, _visual.transform.position, _visual.transform.rotation);
             ghost.name = "Ghost";
             ghost.SetActive(true);
             ghost.transform.localScale = Vector3.one;
-            foreach (var sr in ghost.GetComponentsInChildren<SpriteRenderer>())
-                sr.sortingOrder += 10;
+            foreach (var r in ghost.GetComponentsInChildren<Renderer>())
+                r.sortingOrder += 10;
 
             var t = ghost.transform;
-            var popPos = t.position + new Vector3(0f, 0.9f, 0f);
+            // launch straight up and out of the container area so it never
+            // lingers over the freed slot or the waiting queue below it
+            var popPos = t.position + new Vector3(0f, 1.6f, 0f);
             var seq = DOTween.Sequence();
             seq.Append(t.DOScale(new Vector3(1.16f, 0.66f, 1f), 0.09f).SetEase(Ease.OutQuad)); // lid slams shut
             seq.Append(t.DOScale(new Vector3(0.94f, 1.1f, 1f), 0.08f).SetEase(Ease.OutQuad));  // rebound stretch
-            seq.Append(t.DOMoveY(t.position.y + 0.55f, 0.14f).SetEase(Ease.OutQuad));          // hop clear of the slot
-            seq.Join(t.DOScale(Vector3.one, 0.14f));
-            seq.Append(t.DOMoveY(popPos.y, 0.16f).SetEase(Ease.InQuad));                       // drift on up...
-            seq.Join(t.DOScale(Vector3.zero, 0.16f).SetEase(Ease.InBack));                     // ...and pop away
+            seq.Append(t.DOScale(Vector3.one, 0.06f));
+            seq.Append(t.DOMoveY(popPos.y, 0.34f).SetEase(Ease.OutCubic));                     // fly up and away...
+            seq.Join(t.DOScale(Vector3.zero, 0.34f).SetEase(Ease.InBack));                     // ...shrinking to a pop
             seq.OnComplete(() =>
             {
                 if (ghost != null) Destroy(ghost);

@@ -42,7 +42,7 @@ namespace CubeBurst.Systems
         {
             Hex("#F6392B"), // Red    -> red
             Hex("#D91A6B"), // Purple -> magenta/crimson
-            Hex("#45464F"), // Orange -> dark gray (the "black" cubes)
+            Hex("#F5832E"), // Orange -> orange (reference candy hue)
             Hex("#FFD62B"), // Yellow -> yellow
             Hex("#A8DC26"), // Green  -> lime
             Hex("#2FDDE5"), // Blue   -> cyan

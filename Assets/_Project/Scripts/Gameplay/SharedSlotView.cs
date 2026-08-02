@@ -17,7 +17,7 @@ namespace CubeBurst.Gameplay
         const float InnerHalfWidth = 1.36f; // inner wall faces
         // one full row of Capacity(8) balls spans the whole interior, so a
         // "full" tray is visually unambiguous
-        const float BallScale = 0.33f;
+        const float BallScale = 0.363f;
 
         GameSession _session;
         SpriteRenderer _rim;
@@ -42,14 +42,14 @@ namespace CubeBurst.Gameplay
             dashes.transform.localScale = new Vector3(1.25f, 1f, 1f);
             dashes.color = new Color(1f, 1f, 1f, 0.9f);
 
-            // white straps hanging the basin from the panel's top edge
+            // white hooks clipping over the top corners of the basin, so the
+            // tub reads as hanging from two pegs (reference art)
             for (int i = 0; i < 2; i++)
             {
-                var strap = NewSprite(i == 0 ? "StrapL" : "StrapR", SpriteFactory.BigRounded(), 40);
-                strap.transform.localPosition = new Vector3(i == 0 ? -1.47f : 1.47f, 0.55f, 0.2f);
-                strap.drawMode = SpriteDrawMode.Sliced;
-                strap.size = new Vector2(0.26f, 0.8f);
-                strap.color = new Color(0.99f, 0.97f, 0.97f, 1f);
+                var hook = NewSprite(i == 0 ? "HookL" : "HookR", SpriteFactory.BasinHook(), 47);
+                hook.transform.localPosition = new Vector3(i == 0 ? -1.5f : 1.5f, 0.62f, -0.2f);
+                hook.transform.localScale = new Vector3(i == 0 ? 0.62f : -0.62f, 0.62f, 1f);
+                hook.color = Color.white;
             }
 
             // rim in front so parked balls sit "inside" the basin
@@ -101,12 +101,15 @@ namespace CubeBurst.Gameplay
             var go = ball.gameObject;
             go.transform.SetParent(transform, true);
             var p = go.transform.localPosition;
-            p.x = Mathf.Clamp(p.x, -InnerHalfWidth + 0.16f, InnerHalfWidth - 0.16f);
+            // smaller collider lets balls nest right up to the walls
+            p.x = Mathf.Clamp(p.x, -InnerHalfWidth + 0.12f, InnerHalfWidth - 0.12f);
             p.z = 0f;
             go.transform.localPosition = p;
             go.transform.localScale = Vector3.one * BallScale;
 
-            ball.EnablePhysics(new Vector3(Random.Range(-0.4f, 0.4f), -2.5f, 0f));
+            // gentle downward nudge + a little sideways drift so balls roll into
+            // gaps and pack tight (soft-pile look) rather than stacking rigidly
+            ball.EnablePhysics(new Vector3(Random.Range(-0.5f, 0.5f), -1.8f, 0f));
 
             _balls.Add(ball);
             UpdateDangerTint();

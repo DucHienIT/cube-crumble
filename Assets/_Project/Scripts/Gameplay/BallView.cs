@@ -27,6 +27,13 @@ namespace CubeBurst.Gameplay
         Action<BallView> _onArrive;
         bool _arrived;
 
+        // Jelly squash on landing: a decaying cosine that flattens the ball on
+        // impact and springs it back to round. base scale is captured when the
+        // ball parks so we can multiply the squash on top of the tray's scale.
+        Vector3 _baseScale;
+        float _squashT;
+        bool _squashing;
+
         /// The parked ball's rigidbody, so the tray's out-of-bounds safety net
         /// can zero its velocity without a GetComponent.
         public Rigidbody Body => _body;
@@ -81,7 +88,6 @@ namespace CubeBurst.Gameplay
         /// dynamic bits are set here — no component is created.
         public void EnablePhysics(Vector3 velocity)
         {
-            enabled = false; // stop the flight Update
             _arrived = true;
             _collider.enabled = true;
             _body.isKinematic = false;
@@ -90,13 +96,27 @@ namespace CubeBurst.Gameplay
             // would fight that and render it lagging/floating mid-air). Turn it
             // on now so the piling physics ball moves smoothly in the tray.
             _body.interpolation = RigidbodyInterpolation.Interpolate;
-            _body.maxDepenetrationVelocity = 1f; // don't catapult stacked balls out
+            _body.maxDepenetrationVelocity = 0.6f; // don't catapult stacked balls out
+            // more solver iterations keep the soft (overlapping) pile from
+            // jittering apart as balls stack up
+            _body.solverIterations = 16;
+            _body.solverVelocityIterations = 4;
             _body.velocity = velocity;
+
+            // kick off the jelly squash; Update stays enabled to run it, then
+            // disables itself once the ball settles round again
+            _baseScale = transform.localScale;
+            _squashT = 0f;
+            _squashing = true;
         }
 
         void Update()
         {
-            if (_arrived) return;
+            if (_arrived)
+            {
+                if (_squashing) UpdateSquash();
+                return;
+            }
             if (_delay > 0f)
             {
                 _delay -= Time.deltaTime;
@@ -115,6 +135,26 @@ namespace CubeBurst.Gameplay
             var a = Vector3.Lerp(_from, _ctrl, e);
             var b = Vector3.Lerp(_ctrl, _to, e);
             transform.position = Vector3.Lerp(a, b, e);
+        }
+
+        // Decaying-cosine squash: flatten vertically on impact, spring back to
+        // round. Volume-ish preserved (widen x/z as y compresses) for a soft
+        // jelly wobble. Runs ~0.55s then turns the component off.
+        void UpdateSquash()
+        {
+            _squashT += Time.deltaTime;
+            const float amp = 0.32f, decay = 9f, freq = 26f, life = 0.55f;
+            float s = amp * Mathf.Exp(-decay * _squashT) * Mathf.Cos(freq * _squashT);
+            transform.localScale = new Vector3(
+                _baseScale.x * (1f + s * 0.5f),
+                _baseScale.y * (1f - s),
+                _baseScale.z * (1f + s * 0.5f));
+            if (_squashT >= life)
+            {
+                transform.localScale = _baseScale;
+                _squashing = false;
+                enabled = false; // settled — no more per-frame work
+            }
         }
     }
 }

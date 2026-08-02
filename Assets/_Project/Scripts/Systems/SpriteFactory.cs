@@ -25,6 +25,8 @@ namespace CubeBurst.Systems
         // reference-art sprites
         public static Sprite BigRounded() => Cached("bigRounded", CreateBigRounded);
         public static Sprite Stripes() => Cached("stripes", CreateStripes);
+        public static Sprite RadialGlow() => Cached("radialGlow", CreateRadialGlow);
+        public static Sprite BasinHook() => Cached("basinHook", CreateBasinHook);
         public static Sprite PolkaPanel() => Cached("polka", CreatePolkaPanel);
         public static Sprite BasinRim() => Cached("basinRim", CreateBasinRim);
         public static Sprite Dashes() => Cached("dashes", CreateDashes);
@@ -294,6 +296,45 @@ namespace CubeBurst.Systems
             return ToSprite(tex, px, new Vector4(72, 72, 72, 72));
         }
 
+        /// Soft white radial glow behind the shape — a bright center that fades
+        /// out to nothing, giving the airy vignette look of the reference art.
+        static Sprite CreateRadialGlow()
+        {
+            const int S = 256;
+            var tex = NewTex(S, S);
+            var px = new Color[S * S];
+            var c0 = new Vector2(S / 2f, S / 2f);
+            float maxR = S / 2f;
+            for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), c0) / maxR;
+                float a = Mathf.Clamp01(1f - d);
+                a = a * a * a; // soft, gradual falloff toward the edges
+                px[y * S + x] = new Color(1f, 1f, 1f, a);
+            }
+            return ToSprite(tex, px);
+        }
+
+        /// Small white rounded hook that clips over the top corners of the
+        /// basin, like the tub hangs from two pegs (reference art).
+        static Sprite CreateBasinHook()
+        {
+            const int S = 64;
+            var tex = NewTex(S, S);
+            var px = new Color[S * S];
+            for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                var p = new Vector2(x + 0.5f, y + 0.5f);
+                // C-shaped hook: a thick ring arc open toward the bottom
+                float ring = Mathf.Abs(Vector2.Distance(p, new Vector2(32f, 34f)) - 18f) - 8f;
+                float d = p.y < 26f && p.x > 32f ? float.MaxValue : ring; // open the lower-right
+                px[y * S + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(-d + 0.75f));
+            }
+            return ToSprite(tex, px);
+        }
+
         /// Faint vertical stripes for the top background.
         static Sprite CreateStripes()
         {
@@ -314,8 +355,9 @@ namespace CubeBurst.Systems
         static Sprite CreatePolkaPanel()
         {
             const int W = 256, H = 192;
-            var baseCol = new Color(0.984f, 0.99f, 1f, 1f);
-            var dotCol = new Color(0.851f, 0.886f, 0.957f, 1f);
+            // reference: white polka dots on a light-blue interior
+            var baseCol = new Color(0.784f, 0.835f, 0.933f, 1f);
+            var dotCol = new Color(1f, 1f, 1f, 1f);
             var tex = NewTex(W, H);
             var px = new Color[W * H];
             var c0 = new Vector2(W / 2f, H / 2f);
@@ -330,12 +372,12 @@ namespace CubeBurst.Systems
                     continue;
                 }
                 // staggered dot grid
-                int row = y / 26;
-                float ox = row % 2 == 0 ? 0f : 15f;
-                float dx = Mathf.Repeat(x + ox, 30f) - 15f;
-                float dy = Mathf.Repeat(y, 26f) - 13f;
+                int row = y / 30;
+                float ox = row % 2 == 0 ? 0f : 17f;
+                float dx = Mathf.Repeat(x + ox, 34f) - 17f;
+                float dy = Mathf.Repeat(y, 30f) - 15f;
                 float dd = Mathf.Sqrt(dx * dx + dy * dy);
-                var c = Color.Lerp(dotCol, baseCol, Mathf.Clamp01(dd - 5.5f));
+                var c = Color.Lerp(dotCol, baseCol, Mathf.Clamp01(dd - 6f));
                 c.a = Mathf.Clamp01(-dist + 0.75f);
                 px[y * W + x] = c;
             }
@@ -349,7 +391,7 @@ namespace CubeBurst.Systems
             const int W = 416, H = 224;
             var center = new Vector2(208f, 112f);
             var half = new Vector2(188f, 96f);
-            const float radius = 46f, t = 13f, yOpen = 158f;
+            const float radius = 46f, t = 16f, yOpen = 158f;
             var capL = new Vector2(center.x - half.x, yOpen);
             var capR = new Vector2(center.x + half.x, yOpen);
 
@@ -363,7 +405,21 @@ namespace CubeBurst.Systems
                 float d = p.y <= yOpen ? ring : float.MaxValue;
                 d = Mathf.Min(d, Vector2.Distance(p, capL) - t);
                 d = Mathf.Min(d, Vector2.Distance(p, capR) - t);
-                px[y * W + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(-d + 0.75f));
+                if (d > 0.75f)
+                {
+                    px[y * W + x] = Color.clear;
+                    continue;
+                }
+                // rounded-tube gloss: brightest along the band centerline, with a
+                // light-from-above bias and a darker outer edge, so a flat pink
+                // tint reads as a puffy 3D rim (reference art)
+                float depth = Mathf.Clamp01(-d / t);
+                float g = 0.66f + 0.5f * depth;
+                g += 0.14f * Mathf.Clamp01((p.y - center.y) / half.y); // top edge catches light
+                if (d > -3.5f) g *= 0.66f;                             // dark outer rim
+                var c = new Color(Mathf.Clamp(g, 0f, 1.12f), 0f, 0f, Mathf.Clamp01(-d + 0.75f));
+                c.g = c.r; c.b = c.r;
+                px[y * W + x] = c;
             }
             return ToSprite(tex, px);
         }
@@ -405,10 +461,14 @@ namespace CubeBurst.Systems
                     px[y * W + x] = Color.clear;
                     continue;
                 }
-                float g = 0.86f + 0.14f * (y / (float)(H - 1));   // top brighter
-                if (y < 16) g *= 0.82f + 0.18f * (y / 16f);        // bottom shadow lip
-                if (dist > -3f) g *= 0.5f;                         // dark rim
+                float g = 0.80f + 0.24f * (y / (float)(H - 1));    // top brighter
+                if (y < 22) g *= 0.58f + 0.42f * (y / 22f);        // deep bottom shadow lip
+                if (y > H - 32 && dist < -11f)                     // bright glossy top band
+                    g = Mathf.Min(1.14f, g + 0.22f * Mathf.Clamp01((y - (H - 32)) / 22f));
                 var c = new Color(g, g, g, Mathf.Clamp01(-dist + 0.75f));
+                if (dist > -8f)                                    // thick near-black candy outline
+                    c = Color.Lerp(c, new Color(0.06f, 0.06f, 0.09f, c.a),
+                        Mathf.Clamp01((dist + 8f) / 6.5f));
                 px[y * W + x] = c;
             }
             return ToSprite(tex, px);
@@ -418,7 +478,7 @@ namespace CubeBurst.Systems
         static Sprite CreateSocket()
         {
             const int S = 56;
-            var hole = new Color(0.15f, 0.17f, 0.24f, 1f);
+            var hole = new Color(0.11f, 0.11f, 0.14f, 1f);
             var tex = NewTex(S, S);
             var px = new Color[S * S];
             float c0 = S / 2f, r = 25f;

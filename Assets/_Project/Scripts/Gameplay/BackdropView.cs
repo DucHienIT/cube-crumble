@@ -19,6 +19,12 @@ namespace CubeBurst.Gameplay
             stripes.drawMode = SpriteDrawMode.Tiled;
             stripes.size = new Vector2(12f, 15f);
 
+            // soft white glow behind the shape — the airy vignette of the ref art
+            var glow = NewSprite(root, "Glow", SpriteFactory.RadialGlow(), 1);
+            glow.transform.localPosition = new Vector3(0f, 3.2f, 1.95f);
+            glow.transform.localScale = new Vector3(5f, 4.3f, 1f);
+            glow.color = new Color(1f, 1f, 1f, 0.85f);
+
             // bottom panel with rounded top corners (bottom extends off-screen)
             var panel = NewSprite(root, "Panel", SpriteFactory.BigRounded(), 2);
             panel.transform.localPosition = new Vector3(0f, -4.75f, 2f);

@@ -95,8 +95,8 @@ namespace CubeBurst.Gameplay
                 var view = Instantiate(cubePrefab, transform);
                 view.Init(cube, local);
                 _views[cube.Id] = view;
-                _hullWhite[cube.Id] = CreateHull(_outlineWhite, local, 1.2f, Color.white, 28);
-                _hullBlue[cube.Id] = CreateHull(_outlineBlue, local, 1.29f, Palette.ShapeOutline, 24);
+                _hullWhite[cube.Id] = CreateHull(_outlineWhite, local, 1.04f, Color.white, 28);
+                _hullBlue[cube.Id] = CreateHull(_outlineBlue, local, 1.085f, Palette.ShapeOutline, 24);
             }
             ApplyRotation();
             UpdateDepthOrder();

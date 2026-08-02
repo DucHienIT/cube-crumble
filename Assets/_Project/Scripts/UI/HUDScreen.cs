@@ -20,12 +20,13 @@ namespace CubeBurst.UI
             var root = UIFactory.CreateScreen(canvas, "HUD", Color.clear);
             Root = root.gameObject;
 
-            // pause: dark candy square with a white bars icon
+            // pause: light frosted square with soft slate bars (reference style)
             var pause = UIFactory.CreateCandyButton(root, "Pause", "", new Vector2(0f, 1f), new Vector2(40f, -40f),
-                new Vector2(112f, 112f), Palette.UIDark, 48,
+                new Vector2(112f, 112f), Palette.CardWhite, 48,
                 ui.ShowPause);
             UIFactory.CreateImage(pause.transform, "Icon", SpriteFactory.PauseIcon(),
-                new Vector2(0.5f, 0.5f), new Vector2(0f, 2f), new Vector2(64f, 64f), Color.white);
+                new Vector2(0.5f, 0.5f), new Vector2(0f, 2f), new Vector2(60f, 60f),
+                new Color(0.42f, 0.49f, 0.65f, 1f));
 
             // dark pill with a stopwatch icon and white time (reference style)
             var timerRt = UIFactory.CreateRect(root, "TimerPill");
@@ -40,16 +41,16 @@ namespace CubeBurst.UI
             _timer = UIFactory.CreateText(timerBody.transform, "Timer", "0:00", 58, Color.white,
                 new Vector2(0.5f, 0.5f), new Vector2(28f, 2f), new Vector2(240f, 100f));
 
-            // level badge pill (top-right)
-            var badgeRt = UIFactory.CreateRect(root, "LevelBadge");
-            UIFactory.Place(badgeRt, new Vector2(1f, 1f), new Vector2(-40f, -44f), new Vector2(210f, 96f));
-            UIFactory.CreateSoftShadow(badgeRt, new Vector2(240f, 124f), new Vector2(0f, -10f));
-            var badgeBody = UIFactory.CreateImage(badgeRt, "Body", SpriteFactory.UIGloss(),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(210f, 96f), Palette.BtnBlue);
-            badgeBody.type = Image.Type.Sliced;
-            _levelNumber = UIFactory.CreateText(badgeBody.transform, "LevelNumber", "LV 1", 52, Color.white,
-                new Vector2(0.5f, 0.5f), new Vector2(0f, 3f), new Vector2(200f, 90f));
-            UIFactory.AddOutline(_levelNumber, Color.Lerp(Palette.BtnBlue, Color.black, 0.5f), 2f);
+            // level label (top-right): small "Lvl" caption over a big number,
+            // dark navy text with a white outline, no background pill (ref style)
+            var levelGroup = UIFactory.CreateRect(root, "LevelLabel");
+            UIFactory.Place(levelGroup, new Vector2(1f, 1f), new Vector2(-56f, -30f), new Vector2(170f, 150f));
+            var caption = UIFactory.CreateText(levelGroup, "Caption", "Lvl", 40, Palette.UIDark,
+                new Vector2(0.5f, 1f), new Vector2(0f, -4f), new Vector2(170f, 48f));
+            UIFactory.AddOutline(caption, Color.white, 2f);
+            _levelNumber = UIFactory.CreateText(levelGroup, "LevelNumber", "1", 84, Palette.UIDark,
+                new Vector2(0.5f, 1f), new Vector2(0f, -44f), new Vector2(170f, 100f));
+            UIFactory.AddOutline(_levelNumber, Color.white, 3f);
 
             // big gray tray-danger counter over the bottom panel's top edge
             _progress = UIFactory.CreateText(root, "Progress", "0/0", 88, Palette.CounterGray,
@@ -61,7 +62,7 @@ namespace CubeBurst.UI
 
         public void Bind()
         {
-            _levelNumber.text = $"LV {_gm.LevelIndex}";
+            _levelNumber.text = $"{_gm.LevelIndex}";
             Refresh();
         }
 

@@ -14,34 +14,56 @@ namespace CubeBurst.Core
         public bool IsFull => Filled >= Capacity;
     }
 
-    /// Four visible container slots fed by a per-level queue.
+    /// Four visible container slots, each fed by its OWN column queue. The
+    /// level's flat container list is dealt round-robin across the columns
+    /// (item i -> column i % SlotCount), so each slot only ever refills from
+    /// the stack shown directly beneath it — a completed container slides up
+    /// within its own column instead of jumping across. Because every cube's
+    /// three same-color containers are three consecutive entries (and three
+    /// consecutive indices always fall in three distinct columns), all three
+    /// stay simultaneously available in intended play order — solvability is
+    /// preserved.
     public class ContainerManagerModel
     {
         public const int SlotCount = 4;
 
         public readonly ContainerModel[] Active = new ContainerModel[SlotCount];
-        readonly Queue<ContainerModel> _queue = new Queue<ContainerModel>();
+        readonly Queue<ContainerModel>[] _columns = new Queue<ContainerModel>[SlotCount];
 
-        /// (slot, container) — container is null when the queue ran out.
+        /// (slot, container) — container is null when that column ran out.
         public event Action<int, ContainerModel> ContainerEntered;
         public event Action<int, ContainerModel> ContainerCompleted;
 
-        public int QueueRemaining => _queue.Count;
+        public int QueueRemaining
+        {
+            get
+            {
+                int n = 0;
+                for (int i = 0; i < SlotCount; i++) n += _columns[i].Count;
+                return n;
+            }
+        }
 
-        /// Upcoming containers in dequeue order (for the queue-stack display).
-        public ContainerModel[] QueueSnapshot() => _queue.ToArray();
+        /// Upcoming containers stacked under one column, front first (display).
+        public ContainerModel[] ColumnSnapshot(int col) => _columns[col].ToArray();
 
         public ContainerManagerModel(LevelData data)
         {
+            for (int i = 0; i < SlotCount; i++) _columns[i] = new Queue<ContainerModel>();
+            int idx = 0;
             foreach (var def in data.containerQueue)
-                _queue.Enqueue(new ContainerModel { Color = (GameColor)def.color, Capacity = def.capacity });
+            {
+                _columns[idx % SlotCount].Enqueue(
+                    new ContainerModel { Color = (GameColor)def.color, Capacity = def.capacity });
+                idx++;
+            }
         }
 
         public void FillInitialSlots()
         {
             for (int i = 0; i < SlotCount; i++)
             {
-                Active[i] = _queue.Count > 0 ? _queue.Dequeue() : null;
+                Active[i] = _columns[i].Count > 0 ? _columns[i].Dequeue() : null;
                 ContainerEntered?.Invoke(i, Active[i]);
             }
         }
@@ -72,7 +94,7 @@ namespace CubeBurst.Core
             if (!c.IsFull) return false;
 
             ContainerCompleted?.Invoke(slot, c);
-            Active[slot] = _queue.Count > 0 ? _queue.Dequeue() : null;
+            Active[slot] = _columns[slot].Count > 0 ? _columns[slot].Dequeue() : null;
             ContainerEntered?.Invoke(slot, Active[slot]);
             return true;
         }
