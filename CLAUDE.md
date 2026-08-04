@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project is
 
-A Unity 6 (`6000.3.9f1`) project containing **Cube Burst** (working title) — a genre clone of the iOS tap-puzzle "Cube Crumble": tap cubes in an isometric polycube, cubes crumble into colored balls that fall into color-matched containers, with a shared-slot overflow fail condition and a countdown timer.
+A Unity 2022.3 LTS (`2022.3.62f3` — see `ProjectSettings/ProjectVersion.txt`) project containing **Cube Burst** (working title) — a genre clone of the iOS tap-puzzle "Cube Crumble": tap cubes in an isometric polycube, cubes crumble into colored balls that fall into color-matched containers, with a shared-slot overflow fail condition and a countdown timer.
 
 **The full game design spec is in [docs/cube-crumble-game-spec.md](docs/cube-crumble-game-spec.md)** (in Vietnamese). The spec's section 5 proposes a web/Phaser stack — superseded; only the game rules, systems, and data formats apply. The game is implemented and playable: open `Assets/_Project/Scenes/Main.unity` and press Play.
 
@@ -50,15 +50,27 @@ The shipped JSONs were then transformed (one-off script) to the current ball eco
 
 ## Working with the project
 
-- Open with **Unity Hub**, editor version `6000.3.9f1` exactly.
+- Open with **Unity Hub**, editor version `2022.3.62f3` exactly.
 - **Unity MCP** (`com.coplaydev.unity-mcp`) is installed — when the Unity Editor is running, prefer MCP tools for scene manipulation, running tests, and reading console errors. When not connected, author files directly and write `.meta` files by hand (new files need a `.meta` with a random GUID; folders too).
 - Compile check without Unity (works even while the editor is open) — build a response file with refs from `Assembly-CSharp.csproj` HintPaths **plus all `Library/ScriptAssemblies/*.dll`** (package assemblies incl. InputSystem and the DOTween module extensions in `Assembly-CSharp-firstpass`; exclude `Assembly-CSharp.dll` itself), then:
   ```
   <UNITY>/NetCoreRuntime/dotnet.exe <UNITY>/DotNetSdkRoslyn/csc.dll @refs.rsp
   ```
-  with `-nostdlib -target:library` and the `Assets/_Project/Scripts` sources (Editor pass adds `-define:UNITY_EDITOR -r:UnityEditor.dll`). HintPaths alone miss the package DLLs. Note: passing refs on the command line overflows Windows' arg limit — always use an `@response` file.
+  with `-nostdlib -target:library` and the `Assets/_Project/Scripts` sources (Editor pass adds `-define:UNITY_EDITOR -r:UnityEditor.dll`). HintPaths alone miss the package DLLs. Note: passing refs on the command line overflows Windows' arg limit — always use an `@response` file. When pulling HintPaths from *both* `Assembly-CSharp.csproj` and `Assembly-CSharp-Editor.csproj`, drop the `UnityReferenceAssemblies/unity-4.8-api/**` ones — the project targets .NET Standard, and mixing the two profiles gives `CS1703: Multiple assemblies with equivalent identity`.
 - Input: **new Input System only** (`activeInputHandler: 1`) — use `Pointer.current`, and `InputSystemUIInputModule` on the EventSystem (plain `StandaloneInputModule` will throw).
 - Tests use the **Unity Test Framework** — run via the editor Test Runner or Unity MCP.
+
+### Building for WebGL (release)
+
+`Scripts/Editor/BuildTools.cs` owns the whole pipeline as a top-level **Build** menu; player settings are applied by the tool at build time, so don't hand-tune Project Settings → Player for WebGL — change the code.
+
+- **Build/WebGL Release** → `Builds/WebGL` (gitignored). Gzip + JS decompression fallback (so it runs on itch.io / GitHub Pages / any static host that sends no `Content-Encoding`), hashed file names, `ExplicitlyThrownExceptionsOnly`, no debug symbols, IL2CPP **Master** (smaller wasm, ~2× build time — flip `MasterConfigForRelease` to iterate faster).
+- **Build/WebGL Development + Run** → `Builds/WebGL-Dev`, full stack traces + profiler + diagnostics overlay.
+- **Build/Zip Release For Upload** → `Builds/CubeBurst-WebGL-v<bundleVersion>.zip` with `index.html` at the archive root (itch.io layout).
+- Release builds wipe their output folder first (hashed names would otherwise pile up); the tool refuses to delete a folder that isn't a Unity WebGL build.
+- Managed stripping is **Low** + `stripEngineCode` on — `Assets/link.xml` is what keeps runtime-only `AddComponent<SphereCollider>/<Rigidbody>` alive. Don't raise the stripping level without re-testing the shared tray.
+- CI / batch: `Unity.exe -quit -batchmode -nographics -projectPath <proj> -executeMethod CubeBurst.EditorTools.BuildTools.BuildWebGLCI [-devBuild] [-zip] [-outputPath <dir>] -logFile -` (exit 0/1).
+- A WebGL build cannot be opened from `file://` — use *+ Run* (Unity's own local server) or serve the folder over HTTP.
 
 ## Key assets and packages
 
