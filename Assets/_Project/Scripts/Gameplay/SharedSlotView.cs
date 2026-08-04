@@ -5,41 +5,28 @@ using UnityEngine;
 
 namespace CubeBurst.Gameplay
 {
-    /// Marks a parked ball in the tray so transfers can find it by color.
-    public class BallTag : MonoBehaviour
-    {
-        public GameColor Color;
-    }
-
     /// The shared overflow tray between the cube shape and the containers —
     /// a U-shaped basin (reference style) where landed balls drop in and pile
     /// up with real physics (z-locked so they behave like a 2D pile).
     public class SharedSlotView : MonoBehaviour
     {
-        static readonly Vector3 TrayPos = new Vector3(0f, -1.3f, 0f);
+        // tray position is authored on the SharedSlot prefab root
 
         // basin interior derived from the BasinRim sprite bake (416x224 @128ppu)
         const float FloorY = -0.65f;        // inner floor surface
         const float InnerHalfWidth = 1.36f; // inner wall faces
         // one full row of Capacity(8) balls spans the whole interior, so a
         // "full" tray is visually unambiguous
-        const float BallScale = 0.33f;
-
-        static PhysicsMaterial _ballPhysics;
+        const float BallScale = 0.363f;
 
         GameSession _session;
         SpriteRenderer _rim;
-        readonly List<GameObject> _balls = new List<GameObject>();
+        readonly List<BallView> _balls = new List<BallView>();
 
-        public static SharedSlotView Create(Transform parent, GameSession session)
+        public void Init(GameSession session)
         {
-            var go = new GameObject("SharedSlot");
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = TrayPos;
-            var view = go.AddComponent<SharedSlotView>();
-            view._session = session;
-            view.Build();
-            return view;
+            _session = session;
+            Build();
         }
 
         void Build()
@@ -55,14 +42,14 @@ namespace CubeBurst.Gameplay
             dashes.transform.localScale = new Vector3(1.25f, 1f, 1f);
             dashes.color = new Color(1f, 1f, 1f, 0.9f);
 
-            // white straps hanging the basin from the panel's top edge
+            // white hooks clipping over the top corners of the basin, so the
+            // tub reads as hanging from two pegs (reference art)
             for (int i = 0; i < 2; i++)
             {
-                var strap = NewSprite(i == 0 ? "StrapL" : "StrapR", SpriteFactory.BigRounded(), 40);
-                strap.transform.localPosition = new Vector3(i == 0 ? -1.47f : 1.47f, 0.55f, 0.2f);
-                strap.drawMode = SpriteDrawMode.Sliced;
-                strap.size = new Vector2(0.26f, 0.8f);
-                strap.color = new Color(0.99f, 0.97f, 0.97f, 1f);
+                var hook = NewSprite(i == 0 ? "HookL" : "HookR", SpriteFactory.BasinHook(), 47);
+                hook.transform.localPosition = new Vector3(i == 0 ? -1.5f : 1.5f, 0.62f, -0.2f);
+                hook.transform.localScale = new Vector3(i == 0 ? 0.62f : -0.62f, 0.62f, 1f);
+                hook.color = Color.white;
             }
 
             // rim in front so parked balls sit "inside" the basin
@@ -95,19 +82,6 @@ namespace CubeBurst.Gameplay
             go.GetComponent<BoxCollider>().size = size;
         }
 
-        static PhysicsMaterial BallPhysics()
-        {
-            if (_ballPhysics == null)
-                _ballPhysics = new PhysicsMaterial("TrayBall")
-                {
-                    bounciness = 0.25f,
-                    dynamicFriction = 0.2f,
-                    staticFriction = 0.2f,
-                    bounceCombine = PhysicsMaterialCombine.Average,
-                };
-            return _ballPhysics;
-        }
-
         /// Where flying balls aim: just above the basin opening, with jitter
         /// so the pile builds naturally.
         public Vector3 GetDropPoint()
@@ -117,35 +91,27 @@ namespace CubeBurst.Gameplay
             return transform.position + new Vector3(Random.Range(-1f, 1f), 0.7f, 0f);
         }
 
-        /// Converts a landed ball into a physics ball inside the basin.
+        /// Converts a landed ball into a physics ball inside the basin. The
+        /// SphereCollider + Rigidbody (and their tuning) live on Ball.prefab;
+        /// here we only reposition and wake the physics via BallView.
         public void AcceptBall(BallView ball)
         {
-            var go = ball.gameObject;
-            var tag = go.AddComponent<BallTag>();
-            tag.Color = ball.Route.Color;
             ball.DetachTrail();
-            Destroy(ball);
 
+            var go = ball.gameObject;
             go.transform.SetParent(transform, true);
             var p = go.transform.localPosition;
-            p.x = Mathf.Clamp(p.x, -InnerHalfWidth + 0.16f, InnerHalfWidth - 0.16f);
+            // smaller collider lets balls nest right up to the walls
+            p.x = Mathf.Clamp(p.x, -InnerHalfWidth + 0.12f, InnerHalfWidth - 0.12f);
             p.z = 0f;
             go.transform.localPosition = p;
             go.transform.localScale = Vector3.one * BallScale;
 
-            go.AddComponent<SphereCollider>().sharedMaterial = BallPhysics();
-            var rb = go.AddComponent<Rigidbody>();
-            rb.mass = 0.2f;
-            rb.linearDamping = 0.1f;
-            rb.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
-            rb.interpolation = RigidbodyInterpolation.Interpolate;
-            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            // two balls landing on the same spot must not catapult each other
-            // out of the basin (default depenetration velocity is 10!)
-            rb.maxDepenetrationVelocity = 1f;
-            rb.linearVelocity = new Vector3(Random.Range(-0.4f, 0.4f), -2.5f, 0f);
+            // gentle downward nudge + a little sideways drift so balls roll into
+            // gaps and pack tight (soft-pile look) rather than stacking rigidly
+            ball.EnablePhysics(new Vector3(Random.Range(-0.5f, 0.5f), -1.8f, 0f));
 
-            _balls.Add(go);
+            _balls.Add(ball);
             UpdateDangerTint();
         }
 
@@ -155,12 +121,11 @@ namespace CubeBurst.Gameplay
         {
             for (int i = _balls.Count - 1; i >= 0; i--)
             {
-                var tag = _balls[i].GetComponent<BallTag>();
-                if (tag == null || tag.Color != color) continue;
-                var go = _balls[i];
+                var ball = _balls[i];
+                if (ball == null || ball.Route.Color != color) continue;
                 _balls.RemoveAt(i);
                 UpdateDangerTint();
-                return go;
+                return ball.gameObject;
             }
             return null;
         }
@@ -177,14 +142,13 @@ namespace CubeBurst.Gameplay
         {
             for (int i = 0; i < _balls.Count; i++)
             {
-                var b = _balls[i];
-                if (b == null) continue;
-                var p = b.transform.localPosition;
+                var ball = _balls[i];
+                if (ball == null) continue;
+                var p = ball.transform.localPosition;
                 if (p.y >= FloorY - 0.3f && p.y <= 2.5f && Mathf.Abs(p.x) <= InnerHalfWidth + 0.25f)
                     continue;
-                b.transform.localPosition = new Vector3(Mathf.Clamp(p.x, -1f, 1f), 0.6f, 0f);
-                var rb = b.GetComponent<Rigidbody>();
-                if (rb != null) rb.linearVelocity = Vector3.zero;
+                ball.transform.localPosition = new Vector3(Mathf.Clamp(p.x, -1f, 1f), 0.6f, 0f);
+                if (ball.Body != null) ball.Body.velocity = Vector3.zero;
             }
         }
     }

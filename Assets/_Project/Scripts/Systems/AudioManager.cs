@@ -14,12 +14,6 @@ namespace CubeBurst.Systems
         AudioClip _click, _crumble, _land, _complete, _win, _lose;
         bool _soundOn = true;
 
-        public static AudioManager Create()
-        {
-            var go = new GameObject("AudioManager");
-            return go.AddComponent<AudioManager>();
-        }
-
         public bool SoundOn
         {
             get => _soundOn;
@@ -40,7 +34,7 @@ namespace CubeBurst.Systems
             BuildClips();
             _music.clip = BuildMusicLoop();
             _music.loop = true;
-            _music.volume = 0.3f;
+            _music.volume = GameConfig.Active.musicVolume;
             _music.Play();
             SoundOn = SaveSystem.SoundOn;
         }
