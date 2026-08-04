@@ -1,4 +1,12 @@
+<p align="center">
+  <a href="https://cube-crumble.netlify.app/">
+    <img src="docs/cube-crumble-icon.png" alt="Cube Crumble icon" width="240">
+  </a>
+</p>
+
 # Cube Crumble
+
+**[Play the WebGL build](https://cube-crumble.netlify.app/)**
 
 Cube Crumble is a casual 3D puzzle game built with Unity. Rotate the cube structure, break exposed cubes, and route the released colored balls into matching containers before time or shared-slot space runs out.
 
